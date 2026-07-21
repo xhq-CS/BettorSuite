@@ -1,0 +1,909 @@
+Build a private web application called BettorTracker.
+
+BettorTracker is a simple sports betting insight, player and team trend research, bet tracking, simulated betting, and private social platform.
+
+The app is for personal use and a small invited group of friends. It is not a sportsbook and does not accept, hold, or transfer real money.
+
+Main Goal
+
+Create a polished responsive web app where users can:
+
+Browse leagues, teams, and players
+View player and team statistics
+Analyze player prop trends with graphs
+Enter custom prop lines
+Track real bets manually
+Place simulated bets using virtual money
+View bankroll and betting-performance analytics
+Follow friends and favorite trusted bettors
+Create private groups
+Send direct messages
+
+Use mock data for the first version. Structure the project so a free sports API can be connected later.
+
+Technology
+
+Use:
+
+Next.js
+TypeScript
+Tailwind CSS
+App Router
+PostgreSQL-compatible data models
+Prisma ORM
+Recharts for graphs
+Lucide icons
+
+For the prototype, mock the database and sports data if necessary, but create clean types and interfaces that can later connect to a real backend.
+
+Use a modern dark sports-analytics design.
+
+The interface should feel clean and simple, inspired by apps like LineMate, but do not copy their branding or exact layout.
+
+Avoid clutter, overly complex betting tools, +EV calculations, arbitrage features, and predictive scores.
+
+Design Style
+
+Use:
+
+Dark navy or charcoal background
+White primary text
+Muted gray secondary text
+Green accent for positive results
+Red accent for negative results
+Yellow or amber for pending items
+Rounded cards
+Clear charts
+Compact filters
+Responsive layouts
+Accessible contrast
+Desktop-first design that still works well on mobile
+
+The product should feel like a sports analytics dashboard, not a sportsbook.
+
+Main Navigation
+
+Create a sidebar on desktop and a compact mobile navigation.
+
+Navigation items:
+
+Dashboard
+Leagues
+Teams
+Prop Trends
+Bet Tracker
+Simulator
+Analytics
+Social
+Messages
+Profile
+Settings
+
+The Social section should contain:
+
+Feed
+Following
+Favorite Bettors
+Groups
+Supported Leagues
+
+Start with:
+
+NBA
+WNBA
+MLB
+
+Add a league switcher that remains active while users navigate.
+
+The selected league should control:
+
+Teams
+Players
+Player statistics
+Team statistics
+Prop categories
+Filters
+Dashboard
+
+Do not display current or live games.
+
+The dashboard should focus on the user’s betting activity, saved research, and social activity.
+
+Display summary cards for:
+
+Current bankroll
+Total amount gambled
+Total profit or loss
+ROI percentage
+Total bets
+Wins
+Losses
+Pushes
+Win rate
+Pending wager amount
+
+Add graph visualizations for:
+
+Profit over time
+Bankroll over time
+Amount gambled over time
+ROI over time
+
+Add sections for:
+
+Favorite players
+Favorite teams
+Favorite prop trends
+Recently viewed players
+Recent bets
+Pending bets
+Recent posts from followed bettors
+Unread messages
+
+Allow filters for:
+
+Last 7 days
+Last 14 days
+Last 30 days
+Current month
+Current year
+All time
+Custom date range
+League
+Bet type
+Tracked bets
+Simulated bets
+
+Tracked and simulated results must remain separate by default.
+
+League Pages
+
+Each league page should display:
+
+League name
+League logo
+Teams
+Popular prop categories
+Recently viewed players
+Favorite players
+Favorite teams
+Saved prop trends
+Last data refresh timestamp
+
+Do not make live games the focus.
+
+Teams
+
+Create a team directory for the selected league.
+
+Each team card should display:
+
+Team logo
+Team name
+Team abbreviation
+Conference or division
+
+Each team page should display:
+
+Team name and logo
+League
+Conference or division
+Current roster
+Team-stat trends
+Recent completed-game results
+Favorite button
+Last refresh timestamp
+
+Players should appear under their current team.
+
+Users should also be able to find players through global search.
+
+Global Search
+
+Add global search for:
+
+Players
+Teams
+Leagues
+
+Group search results by type.
+
+Player results should display:
+
+Player name
+Team
+League
+Position
+Player image
+
+Team results should display:
+
+Team name
+League
+Team logo
+Player Pages
+
+Each player page should display:
+
+Player name
+Player image
+Current team
+League
+Position
+Jersey number
+Favorite button
+Last data refresh timestamp
+
+Add a statistic selector.
+
+NBA and WNBA categories:
+
+Points
+Rebounds
+Assists
+Three-pointers made
+Steals
+Blocks
+Turnovers
+Points plus rebounds
+Points plus assists
+Rebounds plus assists
+Points plus rebounds plus assists
+
+MLB hitter categories:
+
+Hits
+Runs
+RBIs
+Hits plus runs plus RBIs
+Home runs
+Total bases
+Singles
+Doubles
+Walks
+Strikeouts
+
+MLB pitcher categories:
+
+Strikeouts
+Outs recorded
+Hits allowed
+Earned runs allowed
+Walks allowed
+
+Display:
+
+Last 5 average
+Last 10 average
+Last 20 average
+Season average
+Median
+Highest result
+Lowest result
+Games analyzed
+Prop Trends
+
+Create a main section called Prop Trends.
+
+The standard navigation flow should be:
+
+League → Prop Category → Player List → Player Trend
+
+Example:
+
+NBA → Three-Pointers Made → Stephen Curry
+
+The Prop Trends player list should support:
+
+Player search
+Team filter
+Favorite-player filter
+Home filter
+Away filter
+Opponent filter
+Minimum games filter
+Date-range filter
+
+Allow sorting by:
+
+Player name
+Team
+Last 5 average
+Last 10 average
+Last 20 average
+Season average
+Hit rate
+Games analyzed
+
+Each player row should display:
+
+Player name
+Team
+Selected statistic
+Recent averages
+Custom prop line
+Hit rate
+Number of games
+Favorite button
+Custom Prop Lines
+
+Allow users to enter a custom prop line.
+
+Example:
+
+Player: Stephen Curry
+Statistic: Three-pointers made
+Line: 4.5
+
+Calculate and display:
+
+Games over
+Games under
+Pushes
+Hit-rate percentage
+Average
+Median
+Highest result
+Lowest result
+Games analyzed
+
+Do not describe hit rate as win probability.
+
+Graph Visualizations
+
+Create interactive player-stat graphs.
+
+Default to a bar chart.
+
+Allow users to switch between:
+
+Bar chart
+Line chart
+Game-log table
+
+The graph should display:
+
+One completed game per data point
+Date
+Opponent
+Home or away
+Statistical result
+Custom prop line
+Average line
+Over, under, or push status
+
+Hovering over a game should display:
+
+Date
+Opponent
+Home or away
+Final statistic
+Final game score
+Over, under, or push result
+
+Add time filters:
+
+Last 5 games
+Last 10 games
+Last 20 games
+Current week
+Last 2 weeks
+Current month
+Current season
+Custom date range
+
+Add a comparison table:
+
+Last 5
+Last 10
+Last 20
+Season
+
+Show average, hit rate, and number of games for each range.
+
+Add a simple nearby-line comparison.
+
+Example:
+
+Over 3.5
+Over 4.5
+Over 5.5
+
+This is historical line comparison only. Do not include +EV or expected-value calculations.
+
+Simple Insight Summaries
+
+Generate short factual summaries from the displayed data.
+
+Example:
+
+“Stephen Curry has made more than 4.5 three-pointers in 6 of his last 10 games. He averaged 4.9 three-pointers during that period.”
+
+Summaries must:
+
+Use stored data
+State the number of games
+Avoid predicting future performance
+Avoid words such as guaranteed, safe, lock, or certain
+Favorites
+
+Users should be able to favorite:
+
+Players
+Teams
+Prop trends
+Bettors
+
+A favorite prop trend should save:
+
+League
+Player
+Statistic
+Custom prop line
+Time range
+Home or away filter
+Opponent filter
+
+Favorite Bettors should appear more prominently in the social feed.
+
+Favoriting another bettor should remain private.
+
+Bet Tracker
+
+Allow users to manually record bets.
+
+Fields:
+
+Sportsbook
+League
+Bet type
+Player or team
+Statistic
+Prop line
+Over or under
+American odds
+Wager amount
+Potential profit
+Total payout
+Date placed
+Notes
+Status
+Tracked or simulated mode
+
+Support bet types:
+
+Straight bet
+Parlay
+Same-game parlay
+
+Support statuses:
+
+Pending
+Won
+Lost
+Push
+Voided
+Cashed out
+
+Automatically calculate:
+
+Potential profit
+Total payout
+Net result
+ROI
+Win rate
+Average wager
+Average odds
+
+Add bet filters for:
+
+League
+Sport
+Sportsbook
+Bet type
+Status
+Date range
+Tracked bets
+Simulated bets
+Simulator
+
+Create a fake-money betting simulator.
+
+Users should have:
+
+Starting virtual bankroll
+Current virtual bankroll
+Simulated bets
+Simulated wins and losses
+Simulated ROI
+Simulated profit or loss
+
+Virtual money must:
+
+Have no real cash value
+Not be purchasable
+Not be withdrawable
+Not be transferable
+
+Allow users to reset their virtual bankroll.
+
+Keep simulated betting performance separate from tracked real-bet records.
+
+Analytics
+
+Create a deeper analytics page separate from the dashboard.
+
+Show:
+
+Total gambled
+Total returned
+Profit or loss
+ROI
+Win rate
+Average wager
+Average odds
+Current streak
+Highest bankroll
+Lowest bankroll
+Largest drawdown
+Pending exposure
+
+Add breakdowns by:
+
+League
+Team
+Player
+Prop category
+Bet type
+Sportsbook
+Month
+Tracked versus simulated
+
+Add charts for:
+
+Cumulative profit
+Daily profit or loss
+Weekly profit or loss
+Monthly profit or loss
+Bankroll balance
+ROI over time
+Amount wagered over time
+User Profiles
+
+Each profile should display:
+
+Username
+Display name
+Profile image
+Biography
+Favorite leagues
+Favorite teams
+Followers count
+Following count
+Groups joined
+Shared posts
+Shared betting statistics, when enabled
+
+Privacy options:
+
+Private profile
+Visible to approved followers
+Visible to all invited BettorTracker users
+
+Users should control whether they share:
+
+Wager amounts
+Profit or loss
+ROI
+Total gambled
+Bankroll
+Bet history
+Follow System
+
+Users should be able to:
+
+Follow another bettor
+Unfollow another bettor
+Request to follow a private user
+Accept or decline requests
+Remove followers
+Block users
+
+Following may reveal:
+
+Shared posts
+Shared trends
+Shared bets
+Shared results
+Public profile information
+
+Private bets must remain hidden unless deliberately shared.
+
+Favorite Bettors
+
+Allow users to mark followed users as Favorite Bettors.
+
+Favorite Bettors should receive higher visibility in:
+
+Dashboard social activity
+Social feed
+Shared picks
+Group member lists
+Message shortcuts
+
+Do not notify users when someone favorites them.
+
+Social Feed
+
+Create a chronological feed.
+
+Show content from:
+
+Followed bettors
+Favorite bettors
+Joined groups
+
+Supported post types:
+
+Text post
+Shared player trend
+Shared team trend
+Shared prop line
+Shared tracked bet
+Shared simulated bet
+Settled bet result
+Graph snapshot
+
+Feed filters:
+
+All
+Favorite bettors
+Research
+Shared bets
+Settled results
+Groups
+
+Do not use engagement-ranking algorithms.
+
+Sharing Trends
+
+Users should be able to share a trend card.
+
+The card should include:
+
+Player or team
+League
+Statistic
+Prop line
+Time range
+Average
+Hit rate
+Games analyzed
+Graph preview
+User comment
+Refresh timestamp
+Sharing Bets
+
+Each bet should have privacy options:
+
+Private
+Followers
+Selected group
+Selected users
+
+Shared bet cards may display:
+
+Selection
+Prop line
+Odds
+Bet type
+Status
+Result
+Wager amount, if allowed
+Profit or loss, if allowed
+Tracked or simulated label
+
+Clearly label:
+
+Tracked bet
+Simulated bet
+Manually settled
+Automatically settled
+Direct Messages
+
+Create one-to-one direct messaging.
+
+Default permission:
+
+Mutual followers only
+
+Allow users to change permissions to:
+
+Anyone in the private community
+Followers only
+Mutual followers only
+Nobody
+
+Initial messaging features:
+
+Text messages
+Shared player links
+Shared team links
+Shared trend cards
+Shared bet cards
+Timestamps
+Unread indicators
+Block user
+Report conversation
+Groups
+
+Allow users to create private or invite-only groups.
+
+Group fields:
+
+Group name
+Image
+Description
+Privacy setting
+Owner
+Moderators
+Members
+League or topic tags
+
+Group roles:
+
+Owner
+Moderator
+Member
+
+Group pages should include:
+
+Group information
+Member list
+Group feed
+Group chat
+Shared research
+Shared bets
+
+Group feed content:
+
+Text discussions
+Player trends
+Team trends
+Prop research
+Tracked bets
+Simulated bets
+Announcements
+
+Group chat should support:
+
+Text
+Player links
+Trend cards
+Bet cards
+Unread count
+Moderator deletion
+Blocking
+Reporting
+Privacy and Safety
+
+Include:
+
+Invite-only registration
+Private profiles
+Follow-request approval
+Blocking
+Post reporting
+Message reporting
+Group reporting
+Moderator controls
+Financial privacy settings
+Clear tracked versus simulated labels
+
+Never require users to display:
+
+Real name
+Wager amounts
+Profit or loss
+ROI
+Bankroll
+Sportsbook account information
+
+Add a clear notice that BettorTracker:
+
+Is not a sportsbook
+Does not accept bets
+Does not hold funds
+Does not guarantee outcomes
+Uses historical statistics for research
+Uses virtual money only for simulation
+Data Refresh
+
+Do not build live sports data.
+
+Design the system for one automatic data refresh per day.
+
+The refresh process should later:
+
+Retrieve completed games
+Add new game records
+Update player stats
+Update team stats
+Recalculate averages
+Recalculate hit rates
+Settle supported bets
+Save the last refresh timestamp
+Record errors
+
+For the prototype, use mock player, team, game, and betting data.
+
+Display “Last updated” timestamps on relevant pages.
+
+Mock Data
+
+Include enough mock data to demonstrate the product.
+
+Create mock data for:
+
+NBA
+WNBA
+MLB
+At least 6 teams per league
+At least 5 players per team
+At least 20 completed games for featured players
+Player game statistics
+Team game statistics
+Tracked bets
+Simulated bets
+User profiles
+Follow relationships
+Favorite bettors
+Groups
+Messages
+Social posts
+Initial Demo Flow
+
+The prototype should support this complete flow:
+
+User opens the dashboard
+User switches to NBA
+User opens Prop Trends
+User selects Three-Pointers Made
+User opens a player
+User views the last 10 games
+User enters a custom line of 4.5
+The app calculates the hit rate
+The graph displays the line
+User favorites the trend
+User creates a simulated bet
+The virtual bankroll updates
+User shares the trend with followers
+Another user sends a direct message
+User views the bet inside Analytics
+Build Priority
+
+Build in this order:
+
+Shared layout and navigation
+Dashboard
+League selector
+Teams and player navigation
+Global search
+Player profiles
+Prop Trends
+Graph visualizations
+Favorites
+Bet Tracker
+Simulator
+Analytics
+User profiles
+Follow system
+Favorite Bettors
+Social feed
+Groups
+Direct messages
+Privacy and reporting controls
+
+Do not add sportsbook integrations, live odds, arbitrage, +EV tools, prediction models, or payment systems.
+
+Focus on a polished working prototype using mock data, clear components, reusable TypeScript types, and a structure that can later connect to a real database and sports API.

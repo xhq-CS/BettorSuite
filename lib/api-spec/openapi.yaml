@@ -3,20 +3,33 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: PropEdge API - sports betting stats tracker and community
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: players
+    description: Player stats and profiles
+  - name: teams
+    description: Team stats and profiles
+  - name: bets
+    description: Real bet tracking
+  - name: simulator
+    description: Virtual bet simulator
+  - name: community
+    description: Community posts and social
+  - name: users
+    description: User profiles and social graph
+  - name: messages
+    description: Direct messages
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +37,665 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # ── Players ─────────────────────────────────────────────────────────────
+  /players:
+    get:
+      operationId: listPlayers
+      tags: [players]
+      summary: List players
+      parameters:
+        - name: sport
+          in: query
+          schema: { type: string }
+        - name: teamId
+          in: query
+          schema: { type: integer }
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Player"
+
+  /players/{id}:
+    get:
+      operationId: getPlayer
+      tags: [players]
+      summary: Get a player
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Player"
+
+  /players/{id}/stats/{period}:
+    get:
+      operationId: getPlayerStats
+      tags: [players]
+      summary: Get player game-by-game stats for a period
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: period
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [week, biweek, month, season]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlayerGameStat"
+
+  /players/{id}/prop-summary:
+    get:
+      operationId: getPlayerPropSummary
+      tags: [players]
+      summary: Averaged prop stats for a player (useful for betting lines)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlayerPropSummary"
+
+  # ── Teams ────────────────────────────────────────────────────────────────
+  /teams:
+    get:
+      operationId: listTeams
+      tags: [teams]
+      summary: List teams
+      parameters:
+        - name: sport
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Team"
+
+  /teams/{id}:
+    get:
+      operationId: getTeam
+      tags: [teams]
+      summary: Get a team
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Team"
+
+  /teams/{id}/stats/{period}:
+    get:
+      operationId: getTeamStats
+      tags: [teams]
+      summary: Get team game-by-game stats for a period
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: period
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [week, biweek, month, season]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamGameStat"
+
+  # ── Trending / Wow ───────────────────────────────────────────────────────
+  /stats/trending:
+    get:
+      operationId: getTrendingProps
+      tags: [players]
+      summary: Hot player props trending across the community
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TrendingProp"
+
+  # ── Bet Tracker ──────────────────────────────────────────────────────────
+  /bets:
+    get:
+      operationId: listBets
+      tags: [bets]
+      summary: List bets for the current user
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, won, lost, push, void]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Bet"
+    post:
+      operationId: createBet
+      tags: [bets]
+      summary: Log a new bet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bet"
+
+  /bets/summary:
+    get:
+      operationId: getBetSummary
+      tags: [bets]
+      summary: Win rate, ROI, and profit/loss summary
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BetSummary"
+
+  /bets/{id}:
+    patch:
+      operationId: updateBet
+      tags: [bets]
+      summary: Update a bet (settle result)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Bet"
+    delete:
+      operationId: deleteBet
+      tags: [bets]
+      summary: Delete a bet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Simulator ────────────────────────────────────────────────────────────
+  /simulator/wallet:
+    get:
+      operationId: getSimulatorWallet
+      tags: [simulator]
+      summary: Get virtual wallet balance and stats
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulatorWallet"
+    post:
+      operationId: resetSimulatorWallet
+      tags: [simulator]
+      summary: Reset wallet to a fresh balance
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WalletReset"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulatorWallet"
+
+  /simulator/bets:
+    get:
+      operationId: listSimulatorBets
+      tags: [simulator]
+      summary: List virtual bets
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SimulatorBet"
+    post:
+      operationId: createSimulatorBet
+      tags: [simulator]
+      summary: Place a virtual bet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulatorBetInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulatorBet"
+
+  /simulator/bets/{id}:
+    patch:
+      operationId: settleSimulatorBet
+      tags: [simulator]
+      summary: Settle a virtual bet (win/loss)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimulatorBetSettle"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulatorBet"
+
+  # ── Community ────────────────────────────────────────────────────────────
+  /posts:
+    get:
+      operationId: listPosts
+      tags: [community]
+      summary: Get community feed
+      parameters:
+        - name: cursor
+          in: query
+          schema: { type: integer }
+        - name: limit
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostFeed"
+    post:
+      operationId: createPost
+      tags: [community]
+      summary: Create a community post
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /posts/{id}:
+    get:
+      operationId: getPost
+      tags: [community]
+      summary: Get a post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+    delete:
+      operationId: deletePost
+      tags: [community]
+      summary: Delete a post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+
+  /posts/{id}/like:
+    post:
+      operationId: likePost
+      tags: [community]
+      summary: Like or unlike a post
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LikeResult"
+
+  # ── Users ────────────────────────────────────────────────────────────────
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: Search users
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserProfile"
+
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+    patch:
+      operationId: updateMe
+      tags: [users]
+      summary: Update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserProfileUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get a user profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+
+  /users/{id}/follow:
+    post:
+      operationId: followUser
+      tags: [users]
+      summary: Follow a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowResult"
+    delete:
+      operationId: unfollowUser
+      tags: [users]
+      summary: Unfollow a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: OK
+
+  /users/{id}/followers:
+    get:
+      operationId: getUserFollowers
+      tags: [users]
+      summary: Get a user's followers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserProfile"
+
+  /users/{id}/following:
+    get:
+      operationId: getUserFollowing
+      tags: [users]
+      summary: Get users this user follows
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserProfile"
+
+  # ── Messages ─────────────────────────────────────────────────────────────
+  /conversations:
+    get:
+      operationId: listConversations
+      tags: [messages]
+      summary: List DM conversations
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Conversation"
+    post:
+      operationId: createConversation
+      tags: [messages]
+      summary: Start a new DM conversation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConversationInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+
+  /conversations/{id}/messages:
+    get:
+      operationId: listMessages
+      tags: [messages]
+      summary: Get messages in a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+    post:
+      operationId: sendMessage
+      tags: [messages]
+      summary: Send a message in a conversation
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  # ── Leaderboard ──────────────────────────────────────────────────────────
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      tags: [community]
+      summary: Top bettors by win rate and profit
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LeaderboardEntry"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +703,341 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    # ── Players ──────────────────────────────────────────────────────────
+    Player:
+      type: object
+      required: [id, name, sport, position, teamId, teamName]
+      properties:
+        id:        { type: integer }
+        name:      { type: string }
+        sport:     { type: string }
+        position:  { type: string }
+        teamId:    { type: integer }
+        teamName:  { type: string }
+        number:    { type: ["string", "null"] }
+        avatarUrl: { type: ["string", "null"] }
+
+    PlayerGameStat:
+      type: object
+      required: [id, playerId, gameDate, opponent]
+      properties:
+        id:           { type: integer }
+        playerId:     { type: integer }
+        gameDate:     { type: string }
+        opponent:     { type: string }
+        # Basketball / shared
+        points:       { type: ["number", "null"] }
+        rebounds:     { type: ["number", "null"] }
+        assists:       { type: ["number", "null"] }
+        steals:       { type: ["number", "null"] }
+        blocks:       { type: ["number", "null"] }
+        threePointers: { type: ["number", "null"] }
+        turnovers:    { type: ["number", "null"] }
+        minutesPlayed: { type: ["number", "null"] }
+        # Baseball
+        hits:         { type: ["number", "null"] }
+        homeRuns:     { type: ["number", "null"] }
+        rbis:         { type: ["number", "null"] }
+        runs:         { type: ["number", "null"] }
+        strikeouts:   { type: ["number", "null"] }
+        walks:        { type: ["number", "null"] }
+        # Pitcher stats
+        inningsPitched: { type: ["number", "null"] }
+        earnedRuns:   { type: ["number", "null"] }
+
+    PlayerPropSummary:
+      type: object
+      required: [playerId, playerName, sport, gamesPlayed]
+      properties:
+        playerId:      { type: integer }
+        playerName:    { type: string }
+        sport:         { type: string }
+        gamesPlayed:   { type: integer }
+        avgPoints:     { type: ["number", "null"] }
+        avgRebounds:   { type: ["number", "null"] }
+        avgAssists:    { type: ["number", "null"] }
+        avgSteals:     { type: ["number", "null"] }
+        avgThreePointers: { type: ["number", "null"] }
+        avgHits:       { type: ["number", "null"] }
+        avgHomeRuns:   { type: ["number", "null"] }
+        avgRbis:       { type: ["number", "null"] }
+
+    TrendingProp:
+      type: object
+      required: [playerId, playerName, sport, statType, recentAvg, trend]
+      properties:
+        playerId:    { type: integer }
+        playerName:  { type: string }
+        sport:       { type: string }
+        teamName:    { type: string }
+        statType:    { type: string }
+        recentAvg:   { type: number }
+        trend:       { type: string, enum: [up, down, flat] }
+        trendPct:    { type: number }
+
+    # ── Teams ────────────────────────────────────────────────────────────
+    Team:
+      type: object
+      required: [id, name, sport, city, abbreviation]
+      properties:
+        id:           { type: integer }
+        name:         { type: string }
+        sport:        { type: string }
+        city:         { type: string }
+        abbreviation: { type: string }
+        logoUrl:      { type: ["string", "null"] }
+
+    TeamGameStat:
+      type: object
+      required: [id, teamId, gameDate, opponent, isHome]
+      properties:
+        id:          { type: integer }
+        teamId:      { type: integer }
+        gameDate:    { type: string }
+        opponent:    { type: string }
+        isHome:      { type: boolean }
+        score:       { type: ["integer", "null"] }
+        opponentScore: { type: ["integer", "null"] }
+        won:         { type: ["boolean", "null"] }
+        # Basketball team stats
+        totalPoints:   { type: ["number", "null"] }
+        totalRebounds: { type: ["number", "null"] }
+        totalAssists:  { type: ["number", "null"] }
+        threePointersMade: { type: ["number", "null"] }
+        # Baseball team stats
+        totalHits:    { type: ["number", "null"] }
+        totalRuns:    { type: ["number", "null"] }
+        totalHomeRuns: { type: ["number", "null"] }
+        errors:       { type: ["number", "null"] }
+
+    # ── Bets ─────────────────────────────────────────────────────────────
+    Bet:
+      type: object
+      required: [id, userId, description, betType, wager, odds, status, createdAt]
+      properties:
+        id:           { type: integer }
+        userId:       { type: integer }
+        description:  { type: string }
+        betType:      { type: string }
+        sportsbook:   { type: ["string", "null"] }
+        wager:        { type: number }
+        odds:         { type: number }
+        potentialPayout: { type: number }
+        actualPayout: { type: ["number", "null"] }
+        status:       { type: string, enum: [pending, won, lost, push, void] }
+        sport:        { type: ["string", "null"] }
+        playerName:   { type: ["string", "null"] }
+        notes:        { type: ["string", "null"] }
+        createdAt:    { type: string }
+        settledAt:    { type: ["string", "null"] }
+
+    BetInput:
+      type: object
+      required: [description, betType, wager, odds]
+      properties:
+        description:  { type: string }
+        betType:      { type: string }
+        sportsbook:   { type: string }
+        wager:        { type: number }
+        odds:         { type: number }
+        sport:        { type: string }
+        playerName:   { type: string }
+        notes:        { type: string }
+
+    BetUpdate:
+      type: object
+      properties:
+        status:       { type: string, enum: [pending, won, lost, push, void] }
+        actualPayout: { type: number }
+        notes:        { type: string }
+
+    BetSummary:
+      type: object
+      required: [totalBets, wins, losses, pushes, winRate, totalWagered, totalProfit, roi]
+      properties:
+        totalBets:    { type: integer }
+        wins:         { type: integer }
+        losses:       { type: integer }
+        pushes:       { type: integer }
+        winRate:      { type: number }
+        totalWagered: { type: number }
+        totalProfit:  { type: number }
+        roi:          { type: number }
+
+    # ── Simulator ────────────────────────────────────────────────────────
+    SimulatorWallet:
+      type: object
+      required: [id, userId, balance, startingBalance, totalBets, wins, losses, totalProfit]
+      properties:
+        id:              { type: integer }
+        userId:          { type: integer }
+        balance:         { type: number }
+        startingBalance: { type: number }
+        totalBets:       { type: integer }
+        wins:            { type: integer }
+        losses:          { type: integer }
+        totalProfit:     { type: number }
+        winRate:         { type: number }
+
+    WalletReset:
+      type: object
+      required: [startingBalance]
+      properties:
+        startingBalance: { type: number }
+
+    SimulatorBet:
+      type: object
+      required: [id, userId, description, betType, wager, odds, potentialPayout, status, createdAt]
+      properties:
+        id:              { type: integer }
+        userId:          { type: integer }
+        description:     { type: string }
+        betType:         { type: string }
+        wager:           { type: number }
+        odds:            { type: number }
+        potentialPayout: { type: number }
+        actualPayout:    { type: ["number", "null"] }
+        status:          { type: string, enum: [pending, won, lost, push] }
+        sport:           { type: ["string", "null"] }
+        playerName:      { type: ["string", "null"] }
+        createdAt:       { type: string }
+
+    SimulatorBetInput:
+      type: object
+      required: [description, betType, wager, odds]
+      properties:
+        description: { type: string }
+        betType:     { type: string }
+        wager:       { type: number }
+        odds:        { type: number }
+        sport:       { type: string }
+        playerName:  { type: string }
+
+    SimulatorBetSettle:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [won, lost, push] }
+
+    # ── Community ────────────────────────────────────────────────────────
+    Post:
+      type: object
+      required: [id, userId, username, content, likeCount, liked, createdAt]
+      properties:
+        id:          { type: integer }
+        userId:      { type: integer }
+        username:    { type: string }
+        avatarUrl:   { type: ["string", "null"] }
+        content:     { type: string }
+        likeCount:   { type: integer }
+        liked:       { type: boolean }
+        sport:       { type: ["string", "null"] }
+        playerTag:   { type: ["string", "null"] }
+        createdAt:   { type: string }
+
+    PostFeed:
+      type: object
+      required: [posts, hasMore]
+      properties:
+        posts:   { type: array, items: { $ref: "#/components/schemas/Post" } }
+        hasMore: { type: boolean }
+        nextCursor: { type: ["integer", "null"] }
+
+    PostInput:
+      type: object
+      required: [content]
+      properties:
+        content:   { type: string }
+        sport:     { type: string }
+        playerTag: { type: string }
+
+    LikeResult:
+      type: object
+      required: [liked, likeCount]
+      properties:
+        liked:     { type: boolean }
+        likeCount: { type: integer }
+
+    # ── Users ────────────────────────────────────────────────────────────
+    UserProfile:
+      type: object
+      required: [id, username, followersCount, followingCount, createdAt]
+      properties:
+        id:             { type: integer }
+        username:       { type: string }
+        displayName:    { type: ["string", "null"] }
+        bio:            { type: ["string", "null"] }
+        avatarUrl:      { type: ["string", "null"] }
+        favoriteSport:  { type: ["string", "null"] }
+        followersCount: { type: integer }
+        followingCount: { type: integer }
+        isFollowing:    { type: boolean }
+        createdAt:      { type: string }
+
+    UserProfileUpdate:
+      type: object
+      properties:
+        displayName:   { type: string }
+        bio:           { type: string }
+        avatarUrl:     { type: string }
+        favoriteSport: { type: string }
+
+    FollowResult:
+      type: object
+      required: [following]
+      properties:
+        following: { type: boolean }
+
+    # ── Messages ─────────────────────────────────────────────────────────
+    Conversation:
+      type: object
+      required: [id, participantId, participantUsername, createdAt]
+      properties:
+        id:                   { type: integer }
+        participantId:        { type: integer }
+        participantUsername:  { type: string }
+        participantAvatarUrl: { type: ["string", "null"] }
+        lastMessage:          { type: ["string", "null"] }
+        lastMessageAt:        { type: ["string", "null"] }
+        unreadCount:          { type: integer }
+        createdAt:            { type: string }
+
+    ConversationInput:
+      type: object
+      required: [participantId]
+      properties:
+        participantId: { type: integer }
+
+    Message:
+      type: object
+      required: [id, conversationId, senderId, content, createdAt]
+      properties:
+        id:             { type: integer }
+        conversationId: { type: integer }
+        senderId:       { type: integer }
+        senderUsername: { type: string }
+        content:        { type: string }
+        createdAt:      { type: string }
+
+    MessageInput:
+      type: object
+      required: [content]
+      properties:
+        content: { type: string }
+
+    # ── Leaderboard ──────────────────────────────────────────────────────
+    LeaderboardEntry:
+      type: object
+      required: [userId, username, totalBets, wins, winRate, totalProfit, rank]
+      properties:
+        userId:      { type: integer }
+        username:    { type: string }
+        avatarUrl:   { type: ["string", "null"] }
+        totalBets:   { type: integer }
+        wins:        { type: integer }
+        winRate:     { type: number }
+        totalProfit: { type: number }
+        roi:         { type: number }
+        rank:        { type: integer }

@@ -7,11 +7,11 @@
     "dev": "pnpm --filter @workspace/propedge dev",
     "dev:app": "pnpm --filter @workspace/propedge dev",
     "preview": "pnpm --filter @workspace/propedge serve",
-    "vercel-build": "pnpm --filter @workspace/propedge build",
+    "vercel-build": "pnpm --filter @workspace/api-server build && pnpm --filter @workspace/propedge build",
     "db:push": "pnpm --filter @workspace/db push",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck && tsc -p api/tsconfig.json"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --if-present run typecheck"
   },
   "private": true,
   "devDependencies": {

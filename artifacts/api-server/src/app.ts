@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import cookieParser from "cookie-parser";
@@ -6,7 +6,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import { authRateLimit } from "./middleware/rateLimit";
 
-const app: Express = express();
+const app = express();
 app.set("trust proxy", 1);
 
 app.use(

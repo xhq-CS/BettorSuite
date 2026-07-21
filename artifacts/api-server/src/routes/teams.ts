@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { teamsTable, teamGameStatsTable } from "@workspace/db";
-import { eq, and, gte } from "drizzle-orm";
+import { eq, and, gte, desc } from "drizzle-orm";
 import {
   ListTeamsQueryParams,
   GetTeamParams,
@@ -18,6 +18,83 @@ teamsRouter.get("/", async (req, res) => {
     .from(teamsTable)
     .where(query.sport ? eq(teamsTable.sport, query.sport) : undefined);
   res.json(rows);
+});
+
+// GET /teams/stat-rankings?sport=NBA&scope=last5|last10|all&venue=home|away|all
+// Aggregated team performance table for the Browse → Stats page.
+// NOTE: must stay registered BEFORE /:id
+teamsRouter.get("/stat-rankings", async (req, res) => {
+  const sport = (req.query.sport as string | undefined) ?? "";
+  const scope = (req.query.scope as string | undefined) ?? "all";     // last5 | last10 | all
+  const venue = (req.query.venue as string | undefined) ?? "all";     // home | away | all
+
+  if (!sport) return res.status(400).json({ error: "sport is required" });
+
+  const teams = await db
+    .select()
+    .from(teamsTable)
+    .where(eq(teamsTable.sport, sport));
+
+  const results = [];
+
+  for (const team of teams) {
+    let games = await db
+      .select()
+      .from(teamGameStatsTable)
+      .where(eq(teamGameStatsTable.teamId, team.id))
+      .orderBy(desc(teamGameStatsTable.gameDate));
+
+    if (venue === "home") games = games.filter(g => g.isHome);
+    if (venue === "away") games = games.filter(g => !g.isHome);
+    if (scope === "last5")  games = games.slice(0, 5);
+    if (scope === "last10") games = games.slice(0, 10);
+
+    if (games.length === 0) {
+      results.push({
+        teamId: team.id, teamName: team.name, city: team.city,
+        abbreviation: team.abbreviation, logoUrl: team.logoUrl,
+        gamesPlayed: 0, wins: 0, losses: 0, winPct: 0,
+        avgScore: 0, avgOppScore: 0, avgMargin: 0,
+        avgTotalPoints: null, avgTotalRebounds: null, avgTotalAssists: null,
+        avgThreePointersMade: null, avgTotalHits: null, avgTotalRuns: null,
+        avgTotalHomeRuns: null,
+      });
+      continue;
+    }
+
+    const n = games.length;
+    const avgOf = (fn: (g: typeof games[number]) => number | null): number | null => {
+      const vals = games.map(fn).filter((v): v is number => v != null && !isNaN(v));
+      return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    };
+
+    const wins = games.filter(g => g.won).length;
+
+    results.push({
+      teamId:       team.id,
+      teamName:     team.name,
+      city:         team.city,
+      abbreviation: team.abbreviation,
+      logoUrl:      team.logoUrl,
+      gamesPlayed:  n,
+      wins,
+      losses:       n - wins,
+      winPct:       n ? wins / n : 0,
+      avgScore:     avgOf(g => g.score) ?? 0,
+      avgOppScore:  avgOf(g => g.opponentScore) ?? 0,
+      avgMargin:    (avgOf(g => g.score) ?? 0) - (avgOf(g => g.opponentScore) ?? 0),
+      avgTotalPoints:       avgOf(g => g.totalPoints       != null ? Number(g.totalPoints)       : null),
+      avgTotalRebounds:     avgOf(g => g.totalRebounds     != null ? Number(g.totalRebounds)     : null),
+      avgTotalAssists:      avgOf(g => g.totalAssists      != null ? Number(g.totalAssists)      : null),
+      avgThreePointersMade: avgOf(g => g.threePointersMade != null ? Number(g.threePointersMade) : null),
+      avgTotalHits:         avgOf(g => g.totalHits         != null ? Number(g.totalHits)         : null),
+      avgTotalRuns:         avgOf(g => g.totalRuns         != null ? Number(g.totalRuns)         : null),
+      avgTotalHomeRuns:     avgOf(g => g.totalHomeRuns     != null ? Number(g.totalHomeRuns)     : null),
+    });
+  }
+
+  results.sort((a, b) => b.winPct - a.winPct || b.avgMargin - a.avgMargin);
+  return res.json(results);
 });
 
 // GET /teams/:id

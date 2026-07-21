@@ -188,7 +188,7 @@ export default function PlayerDetail() {
       {/* Back */}
       <Link href="/stats">
         <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors cursor-pointer">
-          <ArrowLeft className="w-3.5 h-3.5" /> Back to Live Stats
+          <ArrowLeft className="w-3.5 h-3.5" /> Back to Browse
         </div>
       </Link>
 

@@ -10,7 +10,7 @@ import {
 const navItems = [
   { href: "/",           label: "Dashboard",   icon: LayoutDashboard },
   { href: "/trends",     label: "Prop Trends", icon: TrendingUp      },
-  { href: "/stats",      label: "Live Stats",  icon: Signal          },
+  { href: "/stats",      label: "Browse",      icon: Signal          },
   { href: "/tracker",    label: "Bet Tracker", icon: Target          },
   { href: "/simulator",  label: "Simulator",   icon: Gamepad2        },
   { href: "/analytics",  label: "Analytics",   icon: BarChart2       },

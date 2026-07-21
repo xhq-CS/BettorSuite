@@ -7,6 +7,7 @@ import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 
 import Dashboard    from '@/pages/Dashboard';
 import StatsHub     from '@/pages/StatsHub';
+import StatsExplorer from '@/pages/StatsExplorer';
 import PlayerDetail from '@/pages/PlayerDetail';
 import TeamDetail   from '@/pages/TeamDetail';
 import PropTrends   from '@/pages/PropTrends';
@@ -32,6 +33,7 @@ function Router() {
       <Switch>
         <Route path="/"                    component={Dashboard}    />
         <Route path="/stats"               component={StatsHub}     />
+        <Route path="/stats/explore"       component={StatsExplorer} />
         <Route path="/stats/players/:id"   component={PlayerDetail} />
         <Route path="/stats/teams/:id"     component={TeamDetail}   />
         <Route path="/trends"              component={PropTrends}   />

@@ -32,7 +32,8 @@ interface SportDef {
   sportsHost: string;          // api-sports.io host
   leagueId?: number;           // for non-default leagues (WNBA)
   season:    number;
-  markets:   string[];         // odds-api market keys
+  markets:   string[];         // odds-api market keys (main lines)
+  altMarkets?: string[];       // odds-api alternate-line market keys
 }
 
 const SPORTS: SportDef[] = [
@@ -42,6 +43,7 @@ const SPORTS: SportDef[] = [
     sportsHost:"https://v2.nba.api-sports.io",
     season:    2024,
     markets:   ["player_points","player_rebounds","player_assists","player_threes","player_steals","player_blocks","player_turnovers"],
+    altMarkets:["player_points_alternate","player_rebounds_alternate","player_assists_alternate","player_threes_alternate"],
   },
   {
     ourKey:    "WNBA",
@@ -50,6 +52,7 @@ const SPORTS: SportDef[] = [
     leagueId:  17,
     season:    2025,
     markets:   ["player_points","player_rebounds","player_assists","player_threes","player_steals","player_blocks"],
+    altMarkets:["player_points_alternate","player_rebounds_alternate","player_assists_alternate"],
   },
   {
     ourKey:    "MLB",
@@ -57,6 +60,7 @@ const SPORTS: SportDef[] = [
     sportsHost:"https://v1.baseball.api-sports.io",
     season:    2025,
     markets:   ["batter_hits","batter_home_runs","batter_rbis","batter_runs_scored","pitcher_strikeouts","batter_walks"],
+    altMarkets:["batter_hits_alternate","batter_home_runs_alternate","pitcher_strikeouts_alternate"],
   },
   {
     ourKey:    "NFL",
@@ -64,6 +68,7 @@ const SPORTS: SportDef[] = [
     sportsHost:"https://v1.american-football.api-sports.io",
     season:    2024,
     markets:   ["player_reception_yds","player_pass_tds","player_rush_yds","player_receptions","player_pass_yds"],
+    altMarkets:["player_reception_yds_alternate","player_rush_yds_alternate","player_receptions_alternate"],
   },
 ];
 
@@ -114,18 +119,87 @@ async function syncOdds(log: (msg: string) => void): Promise<number> {
       continue;
     }
 
-    log(`[odds] ${sport.ourKey}: ${events.length} event(s), fetching props…`);
+    log(`[odds] ${sport.ourKey}: ${events.length} event(s), fetching lines…`);
 
-    // Batch all markets into a single call per event (saves quota)
-    const marketStr = sport.markets.join(",");
+    // Collected rows keyed by `${market}|${player}|${line}` so alternate
+    // markets can hold multiple lines per player.
+    const collected = new Map<string, {
+      market: string; playerName: string; line: number;
+      overOdds: number | null; underOdds: number | null;
+      book: string; event: string;
+    }>();
+
+    const put = (market: string, playerName: string, line: number,
+                 side: "Over" | "Under" | null, price: number | null,
+                 book: string, event: string) => {
+      // Alternate markets keep one row per line (the whole ladder).
+      // Main/team markets keep ONE row per participant, deterministically
+      // taken from the most-preferred book (so books disagreeing on the
+      // line can't produce duplicate rows).
+      const isAlt = market.endsWith("_alternate");
+      const key = isAlt ? `${market}|${playerName}|${line}` : `${market}|${playerName}`;
+      const existing = collected.get(key);
+      if (!existing) {
+        collected.set(key, {
+          market, playerName, line,
+          overOdds:  side === "Over"  || side === null ? price : null,
+          underOdds: side === "Under" ? price : null,
+          book, event,
+        });
+        return;
+      }
+      const rank         = PREF_BOOKS.indexOf(book);
+      const existingRank = PREF_BOOKS.indexOf(existing.book);
+      const sameBook   = book === existing.book;
+      const betterBook = rank !== -1 && (existingRank === -1 || rank < existingRank);
+      if (betterBook && !isAlt) {
+        // Preferred book wins the whole row (line + odds) for main markets
+        existing.book = book; existing.event = event; existing.line = line;
+        existing.overOdds = null; existing.underOdds = null;
+      }
+      if (sameBook || betterBook || (existing.overOdds == null && existing.underOdds == null)) {
+        if (side === "Over" || side === null) { if (existing.overOdds  == null || betterBook) existing.overOdds  = price; }
+        if (side === "Under")                 { if (existing.underOdds == null || betterBook) existing.underOdds = price; }
+      }
+    };
+
+    // ── 1. Team lines: moneyline / spreads / totals (1 call per sport) ──
+    try {
+      const teamData = await oddsGet(
+        `/sports/${sport.oddsKey}/odds` +
+        `?regions=us&markets=h2h,spreads,totals&oddsFormat=american` +
+        `&bookmakers=${PREF_BOOKS.join(",")}`
+      );
+      for (const ev of (teamData ?? []) as any[]) {
+        const label = `${ev.away_team ?? ""} @ ${ev.home_team ?? ""}`.trim();
+        const books = ((ev.bookmakers ?? []) as any[])
+          .sort((a, b) => PREF_BOOKS.indexOf(a.key) - PREF_BOOKS.indexOf(b.key));
+        for (const book of books) {
+          for (const mkt of (book.markets ?? []) as any[]) {
+            for (const out of (mkt.outcomes ?? []) as any[]) {
+              if (mkt.key === "h2h") {
+                // Moneyline: outcome name = team name, no point
+                put("team_h2h", out.name, 0, null, out.price, book.key, label);
+              } else if (mkt.key === "spreads") {
+                put("team_spreads", out.name, out.point ?? 0, null, out.price, book.key, label);
+              } else if (mkt.key === "totals") {
+                // Over/Under on game total — key by event label
+                put("team_totals", label, out.point ?? 0,
+                    out.name === "Over" ? "Over" : "Under", out.price, book.key, label);
+              }
+            }
+          }
+        }
+      }
+      log(`[odds] ${sport.ourKey}: team lines fetched`);
+    } catch (e: any) {
+      log(`[odds] ${sport.ourKey} team lines error: ${e.message}`);
+    }
+
+    // ── 2. Player props (main + alternate markets, 1 call per event) ──
+    const marketStr = [...sport.markets, ...(sport.altMarkets ?? [])].join(",");
     // Cap at 4 events to conserve the 500/month free quota
     const slice = events.slice(0, 4);
-
-    // Collect: playerName → market → { line, overOdds, underOdds, book, event }
-    const collected = new Map<string, Map<string, {
-      line: number; overOdds: number | null; underOdds: number | null;
-      book: string; event: string;
-    }>>();
 
     for (const ev of slice) {
       const label = `${ev.away_team ?? ""} @ ${ev.home_team ?? ""}`.trim();
@@ -149,67 +223,45 @@ async function syncOdds(log: (msg: string) => void): Promise<number> {
           for (const out of (mkt.outcomes ?? []) as any[]) {
             const name: string = out.description;
             if (!name || out.point == null) continue;
-
-            if (!collected.has(name)) collected.set(name, new Map());
-            const playerMkts = collected.get(name)!;
-
-            const existing = playerMkts.get(mkt.key);
-            if (!existing) {
-              playerMkts.set(mkt.key, {
-                line: out.point,
-                overOdds:  out.name === "Over"  ? out.price : null,
-                underOdds: out.name === "Under" ? out.price : null,
-                book: book.key, event: label,
-              });
-            } else {
-              // Keep the more-preferred book's line; fill missing sides
-              const betterBook = PREF_BOOKS.indexOf(book.key) < PREF_BOOKS.indexOf(existing.book);
-              if (betterBook) {
-                existing.book  = book.key;
-                existing.event = label;
-                existing.line  = out.point;
-              }
-              if (out.name === "Over"  && existing.overOdds  == null) existing.overOdds  = out.price;
-              if (out.name === "Under" && existing.underOdds == null) existing.underOdds = out.price;
-            }
+            put(mkt.key, name, out.point,
+                out.name === "Over" ? "Over" : out.name === "Under" ? "Under" : null,
+                out.price, book.key, label);
           }
         }
       }
     }
 
-    // Upsert to DB
-    for (const [playerName, mkts] of collected) {
-      for (const [market, data] of mkts) {
-        try {
-          await db.insert(oddsCacheTable).values({
-            sport:       sport.oddsKey,
-            market,
-            playerName,
-            line:        String(data.line),
-            overOdds:    data.overOdds  ?? null,
-            underOdds:   data.underOdds ?? null,
-            book:        data.book,
-            eventLabel:  data.event,
-            fetchedAt:   new Date(),
-          }).onConflictDoUpdate({
-            target: [oddsCacheTable.sport, oddsCacheTable.market, oddsCacheTable.playerName],
-            set: {
-              line:       String(data.line),
-              overOdds:   data.overOdds  ?? null,
-              underOdds:  data.underOdds ?? null,
-              book:       data.book,
-              eventLabel: data.event,
-              fetchedAt:  new Date(),
-            },
-          });
-          total++;
-        } catch (e: any) {
-          log(`[odds] upsert error ${playerName}/${market}: ${e.message}`);
-        }
-      }
+    // ── 3. Replace this sport's cached rows in one transaction ──
+    const rows = [...collected.values()].map(d => ({
+      sport:      sport.oddsKey,
+      market:     d.market,
+      playerName: d.playerName,
+      line:       String(d.line),
+      overOdds:   d.overOdds  ?? null,
+      underOdds:  d.underOdds ?? null,
+      book:       d.book,
+      eventLabel: d.event,
+      fetchedAt:  new Date(),
+    }));
+
+    if (rows.length === 0) {
+      // Fetch produced nothing (likely API errors) — keep yesterday's cache
+      log(`[odds] ${sport.ourKey}: no lines collected, keeping existing cache`);
+      continue;
     }
 
-    log(`[odds] ${sport.ourKey}: upserted ${total} records so far`);
+    try {
+      await db.transaction(async (tx) => {
+        await tx.delete(oddsCacheTable).where(eq(oddsCacheTable.sport, sport.oddsKey));
+        for (let i = 0; i < rows.length; i += 200) {
+          await tx.insert(oddsCacheTable).values(rows.slice(i, i + 200)).onConflictDoNothing();
+        }
+      });
+      total += rows.length;
+      log(`[odds] ${sport.ourKey}: cached ${rows.length} lines (${total} total)`);
+    } catch (e: any) {
+      log(`[odds] ${sport.ourKey} cache replace failed (rolled back): ${e.message}`);
+    }
   }
 
   return total;

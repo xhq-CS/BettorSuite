@@ -49,4 +49,5 @@ syncRouter.post("/run", async (_req, res) => {
   } finally {
     syncRunning = false;
   }
+  return;
 });

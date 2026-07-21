@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Activity, Trophy, Newspaper, Search, RefreshCw, Tv, MapPin, ChevronRight } from "lucide-react";
+import { Activity, Trophy, Newspaper, Search, RefreshCw, Tv, MapPin, ChevronRight, BarChart3 } from "lucide-react";
 import { useListPlayers, useListTeams } from "@workspace/api-client-react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
@@ -36,6 +36,7 @@ function useEspn(sport: Sport, endpoint: string, pollMs = 0) {
       const id = setInterval(fetch_, pollMs);
       return () => clearInterval(id);
     }
+    return undefined;
   }, [fetch_, pollMs]);
 
   return { data, loading, error, ts, refresh: fetch_ };
@@ -292,16 +293,24 @@ export default function StatsHub() {
   const { data: dbTeams, isLoading: dbTeamsLoading } = useListTeams({ sport: playerSport });
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
-    { key: "scores",  label: "Scores",  icon: <Activity className="w-3.5 h-3.5" /> },
+    { key: "scores",  label: "Games of the Day",  icon: <Activity className="w-3.5 h-3.5" /> },
     { key: "leaders", label: "Leaders", icon: <Trophy className="w-3.5 h-3.5" /> },
     { key: "news",    label: "News",    icon: <Newspaper className="w-3.5 h-3.5" /> },
   ];
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
-      <div>
-        <h1 className="text-2xl font-display font-bold tracking-tight mb-1">Live Stats</h1>
-        <p className="text-muted-foreground text-sm">Real-time scores, leaders, and news from ESPN</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-display font-bold tracking-tight mb-1">Browse</h1>
+          <p className="text-muted-foreground text-sm">Games of the day, leaders, and news</p>
+        </div>
+        <Link href="/stats/explore">
+          <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border bg-card hover:border-primary/50 hover:text-primary transition-colors cursor-pointer text-sm font-semibold">
+            <BarChart3 className="w-4 h-4" /> Stats
+            <ChevronRight className="w-3.5 h-3.5" />
+          </span>
+        </Link>
       </div>
 
       {/* ── ESPN live section ─────────────────────────── */}

@@ -20,7 +20,8 @@ export const oddsCacheTable = pgTable(
     fetchedAt:   timestamp("fetched_at").defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex("odds_cache_uq").on(t.sport, t.market, t.playerName),
+    // line included so alternate markets can store multiple lines per player
+    uniqueIndex("odds_cache_uq").on(t.sport, t.market, t.playerName, t.line),
   ],
 );
 

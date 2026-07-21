@@ -9,14 +9,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency, formatOdds, calculatePayout } from "@/lib/utils";
 import { toast } from "sonner";
-import { Trophy, TrendingUp, DollarSign, Target, Plus, CheckCircle2, XCircle, X } from "lucide-react";
+import { Trophy, TrendingUp, DollarSign, Target, Plus, CheckCircle2, XCircle, X, CalendarDays, List } from "lucide-react";
 import { format } from "date-fns";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, CartesianGrid } from "recharts";
+import { BetCalendar } from "@/components/BetCalendar";
 
 export default function BetTracker() {
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, setFilter]       = useState<string>("all");
   const [modalOpen, setModalOpen] = useState(false);
+  const [historyView, setHistoryView] = useState<"table" | "calendar">("table");
 
   const { data: bets, isLoading: betsLoading } = useListBets(
     filter === "all" ? undefined : { status: filter as any }
@@ -311,20 +313,49 @@ export default function BetTracker() {
       <Card className="bg-card/40 border-border">
         <CardHeader className="pb-0 border-b border-border">
           <div className="flex justify-between items-center mb-4">
-            <CardTitle className="text-sm font-display uppercase tracking-wider">Bet History</CardTitle>
-            <Select value={filter} onValueChange={setFilter}>
-              <SelectTrigger className="w-[150px] h-8 text-xs font-mono bg-transparent">
-                <SelectValue placeholder="Filter Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Bets</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="won">Won</SelectItem>
-                <SelectItem value="lost">Lost</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-3">
+              <CardTitle className="text-sm font-display uppercase tracking-wider">Bet History</CardTitle>
+              {/* Table / Calendar toggle */}
+              <div className="flex rounded-lg border border-border overflow-hidden">
+                <button
+                  onClick={() => setHistoryView("table")}
+                  className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold transition-colors ${historyView === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                >
+                  <List className="w-3 h-3" /> Table
+                </button>
+                <button
+                  onClick={() => setHistoryView("calendar")}
+                  className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold transition-colors ${historyView === "calendar" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                >
+                  <CalendarDays className="w-3 h-3" /> Calendar
+                </button>
+              </div>
+            </div>
+            {historyView === "table" && (
+              <Select value={filter} onValueChange={setFilter}>
+                <SelectTrigger className="w-[150px] h-8 text-xs font-mono bg-transparent">
+                  <SelectValue placeholder="Filter Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Bets</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="won">Won</SelectItem>
+                  <SelectItem value="lost">Lost</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </CardHeader>
+
+        {/* Calendar view */}
+        {historyView === "calendar" && (
+          <CardContent className="pt-5">
+            <BetCalendar bets={bets ?? []} label="Tracker" />
+          </CardContent>
+        )}
+
+        {/* Table view */}
+        {historyView === "table" && (
         <CardContent className="p-0 overflow-x-auto">
           <Table>
             <TableHeader>
@@ -388,6 +419,7 @@ export default function BetTracker() {
             </TableBody>
           </Table>
         </CardContent>
+        )}
       </Card>
 
       {/* Log New Bet Modal */}

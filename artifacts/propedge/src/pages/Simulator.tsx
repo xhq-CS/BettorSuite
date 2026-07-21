@@ -9,8 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency, formatOdds, calculatePayout } from "@/lib/utils";
 import { toast } from "sonner";
-import { Wallet, RefreshCw, Trophy, Gamepad2, CheckCircle2, XCircle } from "lucide-react";
+import { Wallet, RefreshCw, Trophy, Gamepad2, CheckCircle2, XCircle, CalendarDays, List } from "lucide-react";
 import { format } from "date-fns";
+import { BetCalendar } from "@/components/BetCalendar";
 
 export default function Simulator() {
   const queryClient = useQueryClient();
@@ -21,6 +22,8 @@ export default function Simulator() {
   const createBet = useCreateSimulatorBet();
   const settleBet = useSettleSimulatorBet();
   const resetWallet = useResetSimulatorWallet();
+
+  const [historyView, setHistoryView] = useState<"table" | "calendar">("table");
 
   // Form State
   const [description, setDescription] = useState("");
@@ -203,8 +206,35 @@ export default function Simulator() {
         <div className="lg:col-span-2">
           <Card className="h-full flex flex-col">
             <CardHeader className="pb-0 border-b border-border">
-              <CardTitle className="text-lg font-display uppercase tracking-wider mb-4">Sim History</CardTitle>
+              <div className="flex items-center justify-between mb-4">
+                <CardTitle className="text-lg font-display uppercase tracking-wider">Sim History</CardTitle>
+                {/* Table / Calendar toggle */}
+                <div className="flex rounded-lg border border-border overflow-hidden">
+                  <button
+                    onClick={() => setHistoryView("table")}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold transition-colors ${historyView === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                  >
+                    <List className="w-3 h-3" /> Table
+                  </button>
+                  <button
+                    onClick={() => setHistoryView("calendar")}
+                    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold transition-colors ${historyView === "calendar" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                  >
+                    <CalendarDays className="w-3 h-3" /> Calendar
+                  </button>
+                </div>
+              </div>
             </CardHeader>
+
+            {/* Calendar view */}
+            {historyView === "calendar" && (
+              <CardContent className="pt-5 flex-1 overflow-auto">
+                <BetCalendar bets={bets ?? []} label="Simulator" />
+              </CardContent>
+            )}
+
+            {/* Table view */}
+            {historyView === "table" && (
             <CardContent className="p-0 flex-1 overflow-auto">
               <Table>
                 <TableHeader>
@@ -261,6 +291,7 @@ export default function Simulator() {
                 </TableBody>
               </Table>
             </CardContent>
+            )}
           </Card>
         </div>
       </div>

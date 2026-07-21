@@ -129,6 +129,35 @@ simulatorRouter.post("/wallet", async (req, res) => {
   return res.json(formatWallet(wallet));
 });
 
+// PATCH /simulator/wallet — adjust balance without resetting history
+simulatorRouter.patch("/wallet", async (req, res) => {
+  const { action, amount } = req.body as { action: string; amount: number };
+  if (!["set", "add", "subtract"].includes(action)) {
+    return res.status(400).json({ error: "action must be set | add | subtract" });
+  }
+  if (typeof amount !== "number" || amount <= 0) {
+    return res.status(400).json({ error: "amount must be a positive number" });
+  }
+
+  const wallet = await getOrCreateWallet(DEFAULT_USER_ID);
+  let newBalance: number;
+
+  switch (action) {
+    case "set":      newBalance = amount; break;
+    case "add":      newBalance = Number(wallet.balance) + amount; break;
+    case "subtract": newBalance = Math.max(0, Number(wallet.balance) - amount); break;
+    default:         newBalance = Number(wallet.balance);
+  }
+
+  const [updated] = await db
+    .update(simulatorWalletsTable)
+    .set({ balance: String(newBalance), updatedAt: new Date() })
+    .where(eq(simulatorWalletsTable.userId, DEFAULT_USER_ID))
+    .returning();
+
+  return res.json(formatWallet(updated));
+});
+
 // GET /simulator/bets
 simulatorRouter.get("/bets", async (req, res) => {
   const rows = await db

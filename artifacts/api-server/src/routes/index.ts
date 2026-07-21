@@ -11,6 +11,8 @@ import { usersRouter } from "./users";
 import { trendingRouter } from "./trending";
 import { groupsRouter } from "./groups";
 import { livestatsRouter } from "./livestats";
+import { oddsRouter } from "./odds";
+import { apiSportsRouter } from "./apisports";
 
 const router = Router();
 
@@ -26,5 +28,7 @@ router.use("/leaderboard", leaderboardRouter);
 router.use("/users", usersRouter);
 router.use("/groups", groupsRouter);
 router.use("/livestats", livestatsRouter);
+router.use("/odds", oddsRouter);
+router.use("/sports-ref", apiSportsRouter);
 
 export default router;

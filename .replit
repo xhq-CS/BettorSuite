@@ -21,3 +21,9 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+API_SPORTS_KEY = "7c253029d4cd3b265a40aea75e50345e"
+ODDS_API_KEY = "d7c21eb67d800cbe375f9527c70912fc"

@@ -137,7 +137,7 @@ export default function Groups() {
               <CardContent className="p-4 flex-1">
                 <div className="flex justify-between items-start mb-2">
                   <h3 className="font-display font-bold text-lg truncate pr-2" title={g.name}>{g.name}</h3>
-                  {g.sport && <Badge variant="secondary" className="text-[9px] h-4 py-0 shrink-0 bg-foreground">{g.sport}</Badge>}
+                  {g.sport && <Badge variant="secondary" className="text-[9px] h-4 py-0 shrink-0 text-[#0d0d0d]">{g.sport}</Badge>}
                 </div>
                 <p className="text-xs text-muted-foreground line-clamp-2 h-8">{g.description || "No description"}</p>
                 <div className="flex items-center gap-1.5 mt-4 text-xs font-mono text-muted-foreground">

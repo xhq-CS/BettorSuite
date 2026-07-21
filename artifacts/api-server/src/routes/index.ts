@@ -13,6 +13,7 @@ import { groupsRouter } from "./groups";
 import { livestatsRouter } from "./livestats";
 import { oddsRouter } from "./odds";
 import { apiSportsRouter } from "./apisports";
+import { syncRouter } from "./sync";
 
 const router = Router();
 
@@ -30,5 +31,6 @@ router.use("/groups", groupsRouter);
 router.use("/livestats", livestatsRouter);
 router.use("/odds", oddsRouter);
 router.use("/sports-ref", apiSportsRouter);
+router.use("/sync", syncRouter);
 
 export default router;

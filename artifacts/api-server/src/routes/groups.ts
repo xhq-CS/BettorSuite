@@ -1,202 +1,21 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { groupsTable, groupMembersTable, groupMessagesTable, usersTable } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { db, groupInvitesTable, groupMembersTable, groupMessagesTable, groupsTable, usersTable } from "@workspace/db";
+import type { AuthRequest } from "../middleware/auth";
 
 export const groupsRouter = Router();
-const DEFAULT_USER_ID = 1;
+const uid = (req: unknown) => (req as AuthRequest).userId;
+async function membership(groupId:number,userId:number){const [row]=await db.select().from(groupMembersTable).where(and(eq(groupMembersTable.groupId,groupId),eq(groupMembersTable.userId,userId)));return row;}
+async function requireMember(groupId:number,userId:number){return membership(groupId,userId);}
 
-// GET /groups
-groupsRouter.get("/", async (req, res) => {
-  const sport = req.query.sport as string | undefined;
-
-  const groups = await db
-    .select({
-      id: groupsTable.id,
-      name: groupsTable.name,
-      description: groupsTable.description,
-      sport: groupsTable.sport,
-      avatarUrl: groupsTable.avatarUrl,
-      creatorId: groupsTable.creatorId,
-      createdAt: groupsTable.createdAt,
-      memberCount: sql<number>`(SELECT count(*) FROM group_members WHERE group_id = ${groupsTable.id})::int`,
-    })
-    .from(groupsTable)
-    .orderBy(desc(groupsTable.createdAt))
-    .limit(50);
-
-  const withMembership = await Promise.all(
-    groups.map(async (g) => {
-      const [membership] = await db
-        .select()
-        .from(groupMembersTable)
-        .where(and(eq(groupMembersTable.groupId, g.id), eq(groupMembersTable.userId, DEFAULT_USER_ID)));
-      return {
-        ...g,
-        sport: g.sport ?? null,
-        avatarUrl: g.avatarUrl ?? null,
-        createdAt: g.createdAt.toISOString(),
-        isMember: !!membership,
-        role: membership?.role ?? null,
-      };
-    })
-  );
-
-  return res.json(sport ? withMembership.filter((g) => g.sport === sport) : withMembership);
-});
-
-// POST /groups
-groupsRouter.post("/", async (req, res) => {
-  const { name, description, sport } = req.body as { name: string; description?: string; sport?: string };
-  if (!name || typeof name !== "string" || name.trim().length === 0) {
-    return void res.status(400).json({ error: "name is required" });
-  }
-  const body = { name: name.trim(), description: description?.trim(), sport: sport?.trim() };
-
-  const [group] = await db
-    .insert(groupsTable)
-    .values({ ...body, creatorId: DEFAULT_USER_ID })
-    .returning();
-
-  // Creator auto-joins as admin
-  await db.insert(groupMembersTable).values({
-    groupId: group.id,
-    userId: DEFAULT_USER_ID,
-    role: "admin",
-  });
-
-  return res.status(201).json({
-    id: group.id,
-    name: group.name,
-    description: group.description ?? null,
-    sport: group.sport ?? null,
-    avatarUrl: null,
-    creatorId: group.creatorId,
-    memberCount: 1,
-    isMember: true,
-    role: "admin",
-    createdAt: group.createdAt.toISOString(),
-  });
-});
-
-// GET /groups/:id
-groupsRouter.get("/:id", async (req, res) => {
-  const id = Number(req.params.id);
-  const [group] = await db.select().from(groupsTable).where(eq(groupsTable.id, id));
-  if (!group) return void res.status(404).json({ error: "Group not found" });
-
-  const members = await db
-    .select({
-      userId: groupMembersTable.userId,
-      username: usersTable.username,
-      avatarUrl: usersTable.avatarUrl,
-      role: groupMembersTable.role,
-      joinedAt: groupMembersTable.joinedAt,
-    })
-    .from(groupMembersTable)
-    .leftJoin(usersTable, eq(groupMembersTable.userId, usersTable.id))
-    .where(eq(groupMembersTable.groupId, id));
-
-  const myMembership = members.find((m) => m.userId === DEFAULT_USER_ID);
-
-  return res.json({
-    id: group.id,
-    name: group.name,
-    description: group.description ?? null,
-    sport: group.sport ?? null,
-    avatarUrl: group.avatarUrl ?? null,
-    creatorId: group.creatorId,
-    createdAt: group.createdAt.toISOString(),
-    memberCount: members.length,
-    isMember: !!myMembership,
-    role: myMembership?.role ?? null,
-    members: members.map((m) => ({
-      userId: m.userId,
-      username: m.username ?? "Unknown",
-      avatarUrl: m.avatarUrl ?? null,
-      role: m.role,
-      joinedAt: m.joinedAt.toISOString(),
-    })),
-  });
-});
-
-// POST /groups/:id/join
-groupsRouter.post("/:id/join", async (req, res) => {
-  const id = Number(req.params.id);
-  const [existing] = await db
-    .select()
-    .from(groupMembersTable)
-    .where(and(eq(groupMembersTable.groupId, id), eq(groupMembersTable.userId, DEFAULT_USER_ID)));
-
-  if (existing) {
-    // Leave group
-    await db
-      .delete(groupMembersTable)
-      .where(and(eq(groupMembersTable.groupId, id), eq(groupMembersTable.userId, DEFAULT_USER_ID)));
-    return res.json({ isMember: false });
-  }
-
-  await db.insert(groupMembersTable).values({ groupId: id, userId: DEFAULT_USER_ID, role: "member" });
-  return res.json({ isMember: true });
-});
-
-// GET /groups/:id/messages
-groupsRouter.get("/:id/messages", async (req, res) => {
-  const id = Number(req.params.id);
-  const msgs = await db
-    .select({
-      id: groupMessagesTable.id,
-      groupId: groupMessagesTable.groupId,
-      senderId: groupMessagesTable.senderId,
-      senderUsername: usersTable.username,
-      senderAvatar: usersTable.avatarUrl,
-      content: groupMessagesTable.content,
-      createdAt: groupMessagesTable.createdAt,
-    })
-    .from(groupMessagesTable)
-    .leftJoin(usersTable, eq(groupMessagesTable.senderId, usersTable.id))
-    .where(eq(groupMessagesTable.groupId, id))
-    .orderBy(groupMessagesTable.createdAt)
-    .limit(100);
-
-  return res.json(
-    msgs.map((m) => ({
-      id: m.id,
-      groupId: m.groupId,
-      senderId: m.senderId,
-      senderUsername: m.senderUsername ?? "Unknown",
-      senderAvatar: m.senderAvatar ?? null,
-      content: m.content,
-      createdAt: m.createdAt.toISOString(),
-    }))
-  );
-});
-
-// POST /groups/:id/messages
-groupsRouter.post("/:id/messages", async (req, res) => {
-  const id = Number(req.params.id);
-  const { content } = req.body as { content: string };
-  if (!content || typeof content !== "string" || content.trim().length === 0) {
-    return void res.status(400).json({ error: "content is required" });
-  }
-
-  const [msg] = await db
-    .insert(groupMessagesTable)
-    .values({ groupId: id, senderId: DEFAULT_USER_ID, content })
-    .returning();
-
-  const [user] = await db
-    .select({ username: usersTable.username, avatarUrl: usersTable.avatarUrl })
-    .from(usersTable)
-    .where(eq(usersTable.id, DEFAULT_USER_ID));
-
-  return res.status(201).json({
-    id: msg.id,
-    groupId: msg.groupId,
-    senderId: msg.senderId,
-    senderUsername: user?.username ?? "Unknown",
-    senderAvatar: user?.avatarUrl ?? null,
-    content: msg.content,
-    createdAt: msg.createdAt.toISOString(),
-  });
-});
+groupsRouter.get("/",async(req,res)=>{const userId=uid(req);const rows=await db.select({id:groupsTable.id,name:groupsTable.name,description:groupsTable.description,creatorId:groupsTable.creatorId,createdAt:groupsTable.createdAt,memberCount:sql<number>`(SELECT count(*) FROM group_members WHERE group_id = ${groupsTable.id})::int`}).from(groupsTable).orderBy(desc(groupsTable.createdAt)).limit(50);const result=await Promise.all(rows.map(async g=>{const m=await membership(g.id,userId);return{...g,createdAt:g.createdAt.toISOString(),isMember:!!m,role:m?.role??null}}));return res.json(result)});
+groupsRouter.post("/",async(req,res)=>{const userId=uid(req);const name=String(req.body.name??"").trim();const description=String(req.body.description??"").trim();if(!name)return void res.status(400).json({error:"Group name is required"});const [group]=await db.insert(groupsTable).values({name,description:description||null,creatorId:userId}).returning();await db.insert(groupMembersTable).values({groupId:group.id,userId,role:"admin"});res.status(201).json({...group,memberCount:1,isMember:true,role:"admin",createdAt:group.createdAt.toISOString()})});
+groupsRouter.get("/:id",async(req,res)=>{const groupId=Number(req.params.id),userId=uid(req);const [group]=await db.select().from(groupsTable).where(eq(groupsTable.id,groupId));if(!group)return void res.status(404).json({error:"Group not found"});const members=await db.select({userId:groupMembersTable.userId,username:usersTable.username,role:groupMembersTable.role,joinedAt:groupMembersTable.joinedAt}).from(groupMembersTable).innerJoin(usersTable,eq(groupMembersTable.userId,usersTable.id)).where(eq(groupMembersTable.groupId,groupId));const mine=members.find(m=>m.userId===userId);const invites=mine?.role==="admin"?await db.select({id:groupInvitesTable.id,userId:groupInvitesTable.userId,status:groupInvitesTable.status}).from(groupInvitesTable).where(and(eq(groupInvitesTable.groupId,groupId),eq(groupInvitesTable.status,"pending"))):[];res.json({...group,createdAt:group.createdAt.toISOString(),memberCount:members.length,isMember:!!mine,role:mine?.role??null,members:members.map(m=>({...m,joinedAt:m.joinedAt.toISOString()})),invites})});
+groupsRouter.post("/:id/join",async(req,res)=>{const groupId=Number(req.params.id),userId=uid(req);const existing=await membership(groupId,userId);if(existing)return res.json({isMember:true});await db.insert(groupMembersTable).values({groupId,userId,role:"member"});await db.update(groupInvitesTable).set({status:"accepted"}).where(and(eq(groupInvitesTable.groupId,groupId),eq(groupInvitesTable.userId,userId),eq(groupInvitesTable.status,"pending")));return res.json({isMember:true})});
+groupsRouter.get("/:id/messages",async(req,res)=>{const groupId=Number(req.params.id),userId=uid(req);if(!await requireMember(groupId,userId))return void res.status(403).json({error:"Join this group to view messages"});const rows=await db.select({id:groupMessagesTable.id,senderId:groupMessagesTable.senderId,senderUsername:usersTable.username,content:groupMessagesTable.content,createdAt:groupMessagesTable.createdAt,editedAt:groupMessagesTable.editedAt}).from(groupMessagesTable).innerJoin(usersTable,eq(groupMessagesTable.senderId,usersTable.id)).where(eq(groupMessagesTable.groupId,groupId)).orderBy(groupMessagesTable.createdAt).limit(200);res.json(rows.map(m=>({...m,createdAt:m.createdAt.toISOString(),editedAt:m.editedAt?.toISOString()??null})))});
+groupsRouter.post("/:id/messages",async(req,res)=>{const groupId=Number(req.params.id),userId=uid(req),content=String(req.body.content??"").trim();if(!await requireMember(groupId,userId))return void res.status(403).json({error:"Join this group to send messages"});if(!content||content.length>2000)return void res.status(400).json({error:"Message must be 1–2000 characters"});const [msg]=await db.insert(groupMessagesTable).values({groupId,senderId:userId,content}).returning();res.status(201).json(msg)});
+groupsRouter.patch("/:id/messages/:messageId",async(req,res)=>{const groupId=Number(req.params.id),messageId=Number(req.params.messageId),userId=uid(req),content=String(req.body.content??"").trim();if(!await requireMember(groupId,userId))return void res.status(403).json({error:"Join this group to edit messages"});if(!content||content.length>2000)return void res.status(400).json({error:"Message must be 1-2000 characters"});const [existing]=await db.select().from(groupMessagesTable).where(and(eq(groupMessagesTable.id,messageId),eq(groupMessagesTable.groupId,groupId)));if(!existing)return void res.status(404).json({error:"Message not found"});if(existing.senderId!==userId)return void res.status(403).json({error:"You can only edit your own message"});const [message]=await db.update(groupMessagesTable).set({content,editedAt:new Date()}).where(eq(groupMessagesTable.id,messageId)).returning();return res.json({...message,createdAt:message.createdAt.toISOString(),editedAt:message.editedAt?.toISOString()??null})});
+groupsRouter.delete("/:id/messages/:messageId",async(req,res)=>{const groupId=Number(req.params.id),messageId=Number(req.params.messageId),userId=uid(req);if(!await requireMember(groupId,userId))return void res.status(403).json({error:"Join this group to delete messages"});const [existing]=await db.select().from(groupMessagesTable).where(and(eq(groupMessagesTable.id,messageId),eq(groupMessagesTable.groupId,groupId)));if(!existing)return void res.status(404).json({error:"Message not found"});if(existing.senderId!==userId)return void res.status(403).json({error:"You can only delete your own message"});await db.delete(groupMessagesTable).where(eq(groupMessagesTable.id,messageId));return res.status(204).send()});
+groupsRouter.post("/:id/members",async(req,res)=>{const groupId=Number(req.params.id),userId=uid(req),newUserId=Number(req.body.userId);const mine=await membership(groupId,userId);if(mine?.role!=="admin")return void res.status(403).json({error:"Admin access required"});if(!Number.isInteger(newUserId))return void res.status(400).json({error:"Valid user is required"});if(!await membership(groupId,newUserId))await db.insert(groupMembersTable).values({groupId,userId:newUserId,role:"member"});res.status(201).json({added:true})});
+groupsRouter.post("/:id/invite",async(req,res)=>{const groupId=Number(req.params.id),userId=uid(req),invitedUserId=Number(req.body.userId);const mine=await membership(groupId,userId);if(mine?.role!=="admin")return void res.status(403).json({error:"Admin access required"});const [group]=await db.select().from(groupsTable).where(eq(groupsTable.id,groupId));const [target]=await db.select({username:usersTable.username}).from(usersTable).where(eq(usersTable.id,invitedUserId));if(!group||!target)return void res.status(404).json({error:"Group or user not found"});if(await membership(groupId,invitedUserId))return void res.status(409).json({error:"User is already a member"});const [pending]=await db.select().from(groupInvitesTable).where(and(eq(groupInvitesTable.groupId,groupId),eq(groupInvitesTable.userId,invitedUserId),eq(groupInvitesTable.status,"pending")));if(!pending)await db.insert(groupInvitesTable).values({groupId,userId:invitedUserId,invitedBy:userId,status:"pending"});return res.json({invited:true,message:`@${target.username} was invited to ${group.name}`})});
+groupsRouter.delete("/:id/members/:userId",async(req,res)=>{const groupId=Number(req.params.id),actorId=uid(req),removeId=Number(req.params.userId);const mine=await membership(groupId,actorId),target=await membership(groupId,removeId);if(mine?.role!=="admin")return void res.status(403).json({error:"Admin access required"});if(target?.role==="admin")return void res.status(400).json({error:"The group owner cannot be removed"});await db.delete(groupMembersTable).where(and(eq(groupMembersTable.groupId,groupId),eq(groupMembersTable.userId,removeId)));res.status(204).send()});

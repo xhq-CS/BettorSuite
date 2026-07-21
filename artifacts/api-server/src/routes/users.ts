@@ -12,9 +12,10 @@ import {
   GetUserFollowingParams,
   ListUsersQueryParams,
 } from "@workspace/api-zod";
+import type { AuthRequest } from "../middleware/auth";
 
 export const usersRouter = Router();
-const DEFAULT_USER_ID = 1;
+const currentUserId = (req: unknown) => (req as AuthRequest).userId;
 
 async function formatUser(u: typeof usersTable.$inferSelect, viewerId: number) {
   const [{ count: followersCount }] = await db
@@ -59,11 +60,11 @@ usersRouter.get("/", async (req, res) => {
     .where(
       query.search
         ? ilike(usersTable.username, `%${query.search}%`)
-        : ne(usersTable.id, DEFAULT_USER_ID)
+        : ne(usersTable.id, currentUserId(req))
     )
     .limit(30);
 
-  const formatted = await Promise.all(rows.map((u) => formatUser(u, DEFAULT_USER_ID)));
+  const formatted = await Promise.all(rows.map((u) => formatUser(u, currentUserId(req))));
   res.json(formatted);
 });
 
@@ -72,10 +73,10 @@ usersRouter.get("/me", async (req, res) => {
   const [user] = await db
     .select()
     .from(usersTable)
-    .where(eq(usersTable.id, DEFAULT_USER_ID));
+    .where(eq(usersTable.id, currentUserId(req)));
 
   if (!user) return void res.status(404).json({ error: "User not found" });
-  return res.json(await formatUser(user, DEFAULT_USER_ID));
+  return res.json(await formatUser(user, currentUserId(req)));
 });
 
 // PATCH /users/me
@@ -90,11 +91,11 @@ usersRouter.patch("/me", async (req, res) => {
   const [user] = await db
     .update(usersTable)
     .set(updates)
-    .where(eq(usersTable.id, DEFAULT_USER_ID))
+    .where(eq(usersTable.id, currentUserId(req)))
     .returning();
 
   if (!user) return void res.status(404).json({ error: "User not found" });
-  return res.json(await formatUser(user, DEFAULT_USER_ID));
+  return res.json(await formatUser(user, currentUserId(req)));
 });
 
 // GET /users/:id
@@ -106,21 +107,21 @@ usersRouter.get("/:id", async (req, res) => {
     .where(eq(usersTable.id, id));
 
   if (!user) return void res.status(404).json({ error: "User not found" });
-  return res.json(await formatUser(user, DEFAULT_USER_ID));
+  return res.json(await formatUser(user, currentUserId(req)));
 });
 
 // POST /users/:id/follow
 usersRouter.post("/:id/follow", async (req, res) => {
   const { id } = FollowUserParams.parse({ id: Number(req.params.id) });
-  if (id === DEFAULT_USER_ID) return void res.status(400).json({ error: "Cannot follow yourself" });
+  if (id === currentUserId(req)) return void res.status(400).json({ error: "Cannot follow yourself" });
 
   const [existing] = await db
     .select()
     .from(followsTable)
-    .where(and(eq(followsTable.followerId, DEFAULT_USER_ID), eq(followsTable.followingId, id)));
+    .where(and(eq(followsTable.followerId, currentUserId(req)), eq(followsTable.followingId, id)));
 
   if (!existing) {
-    await db.insert(followsTable).values({ followerId: DEFAULT_USER_ID, followingId: id });
+    await db.insert(followsTable).values({ followerId: currentUserId(req), followingId: id });
   }
 
   return res.json({ following: true });
@@ -131,7 +132,7 @@ usersRouter.delete("/:id/follow", async (req, res) => {
   const { id } = UnfollowUserParams.parse({ id: Number(req.params.id) });
   await db
     .delete(followsTable)
-    .where(and(eq(followsTable.followerId, DEFAULT_USER_ID), eq(followsTable.followingId, id)));
+    .where(and(eq(followsTable.followerId, currentUserId(req)), eq(followsTable.followingId, id)));
   res.status(204).send();
 });
 
@@ -149,7 +150,7 @@ usersRouter.get("/:id/followers", async (req, res) => {
         .select()
         .from(usersTable)
         .where(eq(usersTable.id, f.userId));
-      return u ? formatUser(u, DEFAULT_USER_ID) : null;
+      return u ? formatUser(u, currentUserId(req)) : null;
     })
   );
 
@@ -170,7 +171,7 @@ usersRouter.get("/:id/following", async (req, res) => {
         .select()
         .from(usersTable)
         .where(eq(usersTable.id, f.userId));
-      return u ? formatUser(u, DEFAULT_USER_ID) : null;
+      return u ? formatUser(u, currentUserId(req)) : null;
     })
   );
 

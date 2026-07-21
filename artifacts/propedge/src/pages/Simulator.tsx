@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   useGetSimulatorWallet, useResetSimulatorWallet,
   useListSimulatorBets, useCreateSimulatorBet, useSettleSimulatorBet,
@@ -12,10 +12,13 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatCurrency, formatOdds, calculatePayout } from "@/lib/utils";
+import { api } from "@/lib/api";
+import { BET_TYPE_OPTIONS, formatBetType } from "@/lib/betting-options";
 import { toast } from "sonner";
-import { Gamepad2, CheckCircle2, XCircle, X, Edit2, RotateCcw, Plus, Minus, CalendarDays, List } from "lucide-react";
+import { Gamepad2, CheckCircle2, XCircle, X, Edit2, RotateCcw, Plus, Minus, MinusCircle, CalendarDays, List, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { BetCalendar } from "@/components/BetCalendar";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from "recharts";
 
 const BASE = (import.meta as any).env?.BASE_URL?.replace(/\/$/, "") ?? "";
 
@@ -30,24 +33,45 @@ async function patchWallet(action: "set" | "add" | "subtract", amount: number) {
   return r.json();
 }
 
+async function patchUnitSettings(unitMode: "auto" | "custom", customUnitSize?: number) {
+  const r = await fetch(`${BASE}/api/simulator/wallet`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ unitMode, customUnitSize }),
+  });
+  if (!r.ok) throw new Error("Failed to update unit size");
+  return r.json();
+}
+
+function formatUnits(value: number, unitSize: number, showSign = true) {
+  const units = unitSize > 0 ? value / unitSize : 0;
+  return `${showSign && units > 0 ? "+" : ""}${units.toFixed(2)}u`;
+}
+
 // ── Modal shell ───────────────────────────────────────────────────
-function Modal({ open, onClose, title, children }: {
-  open: boolean; onClose: () => void; title: string; children: React.ReactNode;
+function Modal({ open, onClose, title, children, wide = false }: {
+  open: boolean; onClose: () => void; title: string; children: React.ReactNode; wide?: boolean;
 }) {
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) onClose();
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
-      onClick={e => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div className="w-full max-w-sm mx-4 bg-card border border-border rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className={`w-full ${wide ? "max-w-lg" : "max-w-sm"} mx-4 bg-card border border-border rounded-xl shadow-2xl animate-in fade-in zoom-in-95 duration-200`}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <h3 className="font-display font-semibold text-sm uppercase tracking-wider">{title}</h3>
-          <button onClick={onClose} className="w-7 h-7 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+          <h3 className="font-display font-semibold text-lg">{title}</h3>
+          <button type="button" onClick={onClose} aria-label={`Close ${title}`} className="w-7 h-7 rounded flex items-center justify-center text-red-500 hover:text-red-600 hover:bg-red-50 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="p-4">{children}</div>
       </div>
     </div>
   );
@@ -59,16 +83,25 @@ export default function Simulator() {
 
   const { data: wallet, isLoading: walletLoading } = useGetSimulatorWallet();
   const { data: bets,   isLoading: betsLoading   } = useListSimulatorBets();
+  const betList = Array.isArray(bets) ? bets : [];
 
   const createBet = useCreateSimulatorBet();
   const settleBet = useSettleSimulatorBet();
   const resetWallet = useResetSimulatorWallet();
 
   const [historyView, setHistoryView] = useState<"table" | "calendar">("table");
+  const [profitDisplay, setProfitDisplay] = useState<"money" | "units">("money");
+  const [unitModeDraft, setUnitModeDraft] = useState<"auto" | "custom">("auto");
+  const [customUnitInput, setCustomUnitInput] = useState("");
+  const [unitsBusy, setUnitsBusy] = useState(false);
 
   // Modals
   const [editOpen,  setEditOpen]  = useState(false);
+  const [unitOpen, setUnitOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+  const [configureOpen, setConfigureOpen] = useState(false);
+  const [configuredBetId, setConfiguredBetId] = useState<number | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
 
   // Edit balance
   const [setBalanceVal, setSetBalanceVal] = useState("");
@@ -85,7 +118,22 @@ export default function Simulator() {
   const [odds,        setOdds]         = useState("");
   const [sport,       setSport]        = useState("NBA");
 
+  // Configure an existing mock bet
+  const [configuredDescription, setConfiguredDescription] = useState("");
+  const [configuredType, setConfiguredType] = useState("prop");
+  const [configuredWager, setConfiguredWager] = useState("");
+  const [configuredOdds, setConfiguredOdds] = useState("");
+  const [configuredSport, setConfiguredSport] = useState("NBA");
+  const [configuredStatus, setConfiguredStatus] = useState<"pending" | "won" | "lost" | "push">("pending");
+  const [configureBusy, setConfigureBusy] = useState(false);
+
   const potentialPayoutPreview = calculatePayout(Number(wager), Number(odds));
+
+  useEffect(() => {
+    if (!wallet) return;
+    setUnitModeDraft(wallet.unitMode);
+    setCustomUnitInput(String(wallet.customUnitSize));
+  }, [wallet?.unitMode, wallet?.customUnitSize]);
 
   function invalidate() {
     qc.invalidateQueries({ queryKey: getGetSimulatorWalletQueryKey() });
@@ -152,26 +200,92 @@ export default function Simulator() {
     });
   };
 
+  const openConfigure = (bet: any) => {
+    setConfiguredBetId(bet.id);
+    setConfiguredDescription(bet.description);
+    setConfiguredType(bet.betType);
+    setConfiguredWager(String(bet.wager));
+    setConfiguredOdds(String(bet.odds));
+    setConfiguredSport(bet.sport ?? "NBA");
+    setConfiguredStatus(bet.status);
+    setDeleteConfirm(false);
+    setConfigureOpen(true);
+  };
+
+  const handleConfigureSave = async () => {
+    if (!configuredBetId || !configuredDescription.trim() || Number(configuredWager) <= 0 || !Number(configuredOdds)) {
+      toast.error("Enter valid bet details"); return;
+    }
+    setConfigureBusy(true);
+    try {
+      await api(`/simulator/bets/${configuredBetId}`, { method: "PATCH", body: JSON.stringify({ description: configuredDescription, betType: configuredType, wager: Number(configuredWager), odds: Number(configuredOdds), sport: configuredSport, status: configuredStatus }) });
+      toast.success("Mock bet updated");
+      setConfigureOpen(false); invalidate();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to update bet"); }
+    finally { setConfigureBusy(false); }
+  };
+
+  const handleDeleteBet = async () => {
+    if (!configuredBetId) return;
+    setConfigureBusy(true);
+    try {
+      await api(`/simulator/bets/${configuredBetId}`, { method: "DELETE" });
+      toast.success("Mock bet removed");
+      setConfigureOpen(false); invalidate();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Unable to remove bet"); }
+    finally { setConfigureBusy(false); }
+  };
+
+  const handleSaveUnits = async () => {
+    const customSize = Number(customUnitInput);
+    if (unitModeDraft === "custom" && (!Number.isFinite(customSize) || customSize <= 0)) {
+      toast.error("Enter a valid unit size");
+      return;
+    }
+    setUnitsBusy(true);
+    try {
+      await patchUnitSettings(unitModeDraft, unitModeDraft === "custom" ? customSize : undefined);
+      invalidate();
+      setUnitOpen(false);
+      toast.success(unitModeDraft === "auto" ? "Unit size set to 1% of your starting bankroll" : `Unit size set to ${formatCurrency(customSize)}`);
+    } catch {
+      toast.error("Unable to update unit size");
+    } finally {
+      setUnitsBusy(false);
+    }
+  };
+
   const winRate = wallet ? ((wallet.winRate ?? 0) * 100).toFixed(1) : "0.0";
   const roi     = wallet && wallet.totalBets > 0
-    ? (((wallet.balance - wallet.startingBalance) / wallet.startingBalance) * 100).toFixed(1)
+    ? (((wallet.totalProfit ?? 0) / wallet.startingBalance) * 100).toFixed(1)
     : "0.0";
+  const unitSize = Math.max(0.01, Number(wallet?.unitSize ?? 1));
+
+  const chartData = useMemo(() => {
+    let cumulative = 0;
+    const settled = [...betList].reverse().filter(bet => bet.status !== "pending");
+    return [{ date: "Start", profit: 0, units: 0 }, ...settled.map(bet => {
+      if (bet.status === "won") cumulative += (bet.actualPayout ?? bet.potentialPayout) - bet.wager;
+      else if (bet.status === "lost") cumulative -= bet.wager;
+      return { date: format(new Date(bet.createdAt), "MMM d"), profit: Number(cumulative.toFixed(2)), units: Number((cumulative / unitSize).toFixed(2)) };
+    })];
+  }, [betList, unitSize]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div>
-        <h1 className="text-2xl font-display font-bold tracking-tight mb-0.5">Simulator</h1>
-        <p className="text-muted-foreground text-sm">Test strategies risk-free with virtual money</p>
+        <h1 className="text-3xl font-display font-bold tracking-tighter mb-1">MOCK BETTING</h1>
+        <p className="text-muted-foreground text-sm font-mono uppercase tracking-wider">Test your strategy with a virtual bankroll</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
 
         {/* ── Left column ─────────────────────────── */}
-        <div className="space-y-4">
+        <div className="space-y-6 lg:contents lg:space-y-0">
 
           {/* Wallet card */}
-          <Card className="border-border bg-card overflow-hidden">
-            <CardContent className="p-5">
+          <Card className="h-full border-border bg-card overflow-hidden shadow-sm lg:col-start-1">
+            <CardContent className="p-4">
               {walletLoading ? (
                 <div className="space-y-3 animate-pulse">
                   <div className="h-10 bg-muted rounded" />
@@ -181,45 +295,61 @@ export default function Simulator() {
               ) : (
                 <>
                   {/* Balance */}
-                  <div className="mb-4">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-1">Sim Balance</div>
-                    <div className="text-4xl font-mono font-bold tracking-tight">
+                  <div className="mb-3">
+                    <div className="text-sm font-medium text-muted-foreground mb-1">Virtual Bankroll</div>
+                    <div className="text-3xl font-mono font-bold tracking-tight text-slate-950">
                       {formatCurrency(wallet?.balance ?? 0)}
                     </div>
-                    <div className={`text-sm font-mono mt-0.5 ${(wallet?.totalProfit ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
-                      {(wallet?.totalProfit ?? 0) >= 0 ? "+" : ""}{formatCurrency(wallet?.totalProfit ?? 0)} all time
+                    <div className={`text-base font-mono font-semibold mt-1 ${(wallet?.totalProfit ?? 0) >= 0 ? "text-green-400" : "text-red-400"}`}>
+                      {(wallet?.totalProfit ?? 0) >= 0 ? "+" : ""}{formatCurrency(wallet?.totalProfit ?? 0)}
+                      <span className="mx-2 text-slate-300">|</span>
+                      {formatUnits(wallet?.totalProfit ?? 0, unitSize)} Total Profit
                     </div>
                   </div>
 
                   {/* Stats row */}
-                  <div className="grid grid-cols-4 gap-2 border-y border-border py-3 mb-4 text-center">
-                    <div>
-                      <div className="text-[10px] text-muted-foreground uppercase mb-0.5">W</div>
-                      <div className="font-mono font-semibold text-green-400">{wallet?.wins ?? 0}</div>
+                  <div className="grid grid-cols-4 gap-1.5 border-y border-border py-2.5 mb-3">
+                    <div className="rounded-lg bg-slate-50 px-2.5 py-1.5">
+                      <div className="text-xs font-medium text-muted-foreground mb-0.5">Wins</div>
+                      <div className="font-mono text-xl font-bold text-green-400">{wallet?.wins ?? 0}</div>
                     </div>
-                    <div>
-                      <div className="text-[10px] text-muted-foreground uppercase mb-0.5">L</div>
-                      <div className="font-mono font-semibold text-red-400">{wallet?.losses ?? 0}</div>
+                    <div className="rounded-lg bg-slate-50 px-2.5 py-1.5">
+                      <div className="text-xs font-medium text-muted-foreground mb-0.5">Losses</div>
+                      <div className="font-mono text-xl font-bold text-red-600">{wallet?.losses ?? 0}</div>
                     </div>
-                    <div>
-                      <div className="text-[10px] text-muted-foreground uppercase mb-0.5">W%</div>
-                      <div className="font-mono font-semibold">{winRate}%</div>
+                    <div className="rounded-lg bg-slate-50 px-2.5 py-1.5">
+                      <div className="text-xs font-medium text-muted-foreground mb-0.5">Win Rate</div>
+                      <div className="font-mono text-xl font-bold text-slate-900">{winRate}%</div>
                     </div>
-                    <div>
-                      <div className="text-[10px] text-muted-foreground uppercase mb-0.5">ROI</div>
-                      <div className={`font-mono font-semibold text-sm ${Number(roi) >= 0 ? "text-green-400" : "text-red-400"}`}>{Number(roi) >= 0 ? "+" : ""}{roi}%</div>
+                    <div className="rounded-lg bg-slate-50 px-2.5 py-1.5">
+                      <div className="text-xs font-medium text-muted-foreground mb-0.5">ROI</div>
+                      <div className={`font-mono text-xl font-bold ${Number(roi) >= 0 ? "text-green-400" : "text-red-400"}`}>{Number(roi) >= 0 ? "+" : ""}{roi}%</div>
                     </div>
                   </div>
 
+                  {/* Unit size */}
+                  <div className="mb-2.5 flex items-center justify-between gap-3 rounded-lg border border-border bg-slate-50 px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="text-xs font-medium text-muted-foreground">Unit Size</div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="whitespace-nowrap font-mono text-base font-bold text-emerald-700">1u = {formatCurrency(unitSize)}</span>
+                        <span className="truncate text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{wallet?.unitMode === "custom" ? "Custom" : "Auto · 1%"}</span>
+                      </div>
+                    </div>
+                    <button type="button" onClick={() => { setUnitModeDraft(wallet?.unitMode ?? "auto"); setCustomUnitInput(String(wallet?.customUnitSize ?? unitSize)); setUnitOpen(true); }} className="shrink-0 rounded-md border border-border bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-primary/40 hover:text-primary">
+                      Configure
+                    </button>
+                  </div>
+
                   {/* Quick add */}
-                  <div className="mb-3">
-                    <div className="text-[10px] text-muted-foreground uppercase tracking-widest mb-2">Quick Add</div>
+                  <div className="mb-2.5">
+                    <div className="text-sm font-medium text-slate-700 mb-1.5">Quick Add Funds</div>
                     <div className="grid grid-cols-4 gap-1.5">
                       {[100, 500, 1000, 5000].map(amt => (
                         <button
                           key={amt}
                           onClick={() => quickAdjust(amt, "add")}
-                          className="py-1.5 text-[11px] font-mono font-semibold rounded border border-border hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-colors"
+                          className="py-1.5 text-sm font-mono font-semibold rounded-lg border border-border hover:border-primary/50 hover:text-primary hover:bg-primary/5 transition-colors"
                         >
                           +{amt >= 1000 ? `${amt/1000}k` : amt}
                         </button>
@@ -231,13 +361,13 @@ export default function Simulator() {
                   <div className="flex gap-2">
                     <button
                       onClick={() => setEditOpen(true)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-semibold border border-border rounded-lg hover:bg-muted transition-colors"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-semibold border border-border rounded-lg hover:bg-muted transition-colors"
                     >
                       <Edit2 className="w-3.5 h-3.5" /> Edit Balance
                     </button>
                     <button
                       onClick={() => setResetOpen(true)}
-                      className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold border border-border rounded-lg hover:bg-destructive/10 hover:border-destructive/50 hover:text-destructive transition-colors"
+                      className="flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-semibold border border-border rounded-lg hover:bg-destructive/10 hover:border-destructive/50 hover:text-destructive transition-colors"
                     >
                       <RotateCcw className="w-3.5 h-3.5" /> Reset
                     </button>
@@ -248,83 +378,107 @@ export default function Simulator() {
           </Card>
 
           {/* Place Bet form */}
-          <Card className="border-border bg-card">
-            <CardHeader className="pb-3 pt-4">
-              <CardTitle className="text-sm font-display uppercase tracking-wider flex items-center gap-2">
-                <Gamepad2 className="w-4 h-4 text-primary" /> Place Sim Bet
+          <Card className="h-full border-border bg-card shadow-sm lg:col-start-2 flex flex-col">
+            <CardHeader className="border-b border-border px-5 py-4">
+              <CardTitle className="text-lg font-display uppercase tracking-wider flex items-center gap-2">
+                <Gamepad2 className="w-4 h-4 text-primary" /> Place Mock Bet
               </CardTitle>
             </CardHeader>
-            <CardContent className="pt-0">
-              <form onSubmit={handleCreate} className="space-y-3">
+            <CardContent className="flex-1 p-5">
+              <form onSubmit={handleCreate} className="flex h-full flex-col gap-4">
                 <div>
-                  <label className="text-[10px] text-muted-foreground uppercase tracking-widest block mb-1">Description *</label>
-                  <Input placeholder="e.g. Steph Curry O 5.5 3PM" value={description} onChange={e => setDescription(e.target.value)} className="bg-muted/30 text-sm" />
+                  <label className="text-xs font-mono uppercase text-muted-foreground block mb-2">Description <span className="text-destructive">*</span></label>
+                  <Input placeholder="e.g. Steph Curry over 5.5 threes" value={description} onChange={e => setDescription(e.target.value)} className="bg-background/50" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] text-muted-foreground uppercase tracking-widest block mb-1">Wager ($) *</label>
-                    <Input type="number" step="0.01" placeholder="100" value={wager} onChange={e => setWager(e.target.value)} className="bg-muted/30 text-sm" />
+                    <label className="text-xs font-mono uppercase text-muted-foreground block mb-2">Wager ($) <span className="text-destructive">*</span></label>
+                    <Input type="number" step="0.01" placeholder="100" value={wager} onChange={e => setWager(e.target.value)} className="bg-background/50 font-mono" />
                   </div>
                   <div>
-                    <label className="text-[10px] text-muted-foreground uppercase tracking-widest block mb-1">Odds *</label>
-                    <Input type="number" placeholder="-110" value={odds} onChange={e => setOdds(e.target.value)} className="bg-muted/30 text-sm" />
+                    <label className="text-xs font-mono uppercase text-muted-foreground block mb-2">American Odds <span className="text-destructive">*</span></label>
+                    <Input type="number" placeholder="-110" value={odds} onChange={e => setOdds(e.target.value)} className="bg-background/50 font-mono" />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] text-muted-foreground uppercase tracking-widest block mb-1">Sport</label>
+                    <label className="text-xs font-mono uppercase text-muted-foreground block mb-2">Sport</label>
                     <Select value={sport} onValueChange={setSport}>
-                      <SelectTrigger className="bg-muted/30 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {["NBA","WNBA","MLB","NFL"].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <label className="text-[10px] text-muted-foreground uppercase tracking-widest block mb-1">Type</label>
+                    <label className="text-xs font-mono uppercase text-muted-foreground block mb-2">Type</label>
                     <Select value={betType} onValueChange={setBetType}>
-                      <SelectTrigger className="bg-muted/30 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="prop">Prop</SelectItem>
-                        <SelectItem value="moneyline">Moneyline</SelectItem>
-                        <SelectItem value="spread">Spread</SelectItem>
-                        <SelectItem value="total">Total</SelectItem>
+                        {BET_TYPE_OPTIONS.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
 
                 {wager && odds && (
-                  <div className="flex items-center justify-between bg-muted/30 border border-border rounded-lg px-3 py-2">
-                    <span className="text-xs text-muted-foreground">To win</span>
-                    <span className="font-mono font-semibold text-green-400 text-sm">{formatCurrency(potentialPayoutPreview)}</span>
+                  <div className="flex items-center justify-between bg-muted/40 border border-border rounded-md p-3">
+                    <span className="text-xs font-mono uppercase text-muted-foreground">Potential Payout</span>
+                    <span className="font-mono font-bold text-lg text-green-400">{formatCurrency(potentialPayoutPreview)}</span>
                   </div>
                 )}
 
-                <Button type="submit" className="w-full text-sm" disabled={createBet.isPending || !wallet}>
-                  {createBet.isPending ? "Placing…" : "Place Sim Bet →"}
+                <Button type="submit" className="mt-auto w-full h-10 text-sm font-display font-semibold uppercase tracking-wider" disabled={createBet.isPending || !wallet}>
+                  {createBet.isPending ? "Placing…" : "Place Mock Bet →"}
                 </Button>
               </form>
             </CardContent>
           </Card>
+
         </div>
 
         {/* ── Right column: History ───────────────── */}
-        <div className="lg:col-span-2">
-          <Card className="border-border bg-card h-full flex flex-col">
+        <div className="min-w-0 space-y-6 lg:contents lg:space-y-0">
+          <Card className="border-border bg-card shadow-sm lg:col-span-2">
+            <CardHeader className="pb-2">
+              <div className="flex items-start justify-between gap-4">
+                <div><CardTitle className="text-lg font-display">Profit Trend</CardTitle><p className="text-sm text-muted-foreground">Cumulative profit from settled mock bets</p></div>
+                <div className="flex overflow-hidden rounded-lg border border-border" aria-label="Profit graph display">
+                  <button type="button" onClick={() => setProfitDisplay("money")} className={`min-w-10 px-3 py-1.5 text-sm font-mono font-bold transition-colors ${profitDisplay === "money" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>$</button>
+                  <button type="button" onClick={() => setProfitDisplay("units")} className={`min-w-10 border-l border-border px-3 py-1.5 text-sm font-mono font-bold transition-colors ${profitDisplay === "units" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Units</button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="h-[170px] w-full">
+                {chartData.length > 1 ? <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 10, right: 12, left: 4, bottom: 0 }}>
+                    <defs><linearGradient id="mockProfitFill" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#2563eb" stopOpacity={0.22} /><stop offset="95%" stopColor="#2563eb" stopOpacity={0} /></linearGradient></defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#64748b" }} tickLine={false} axisLine={false} minTickGap={24} />
+                    <YAxis tick={{ fontSize: 12, fill: "#64748b" }} tickLine={false} axisLine={false} tickFormatter={value => profitDisplay === "money" ? `$${value}` : `${value}u`} width={62} />
+                    <ChartTooltip formatter={(value: number) => [profitDisplay === "money" ? formatCurrency(value) : `${Number(value).toFixed(2)}u`, "Profit"]} contentStyle={{ borderRadius: 10, border: "1px solid #e2e8f0", boxShadow: "0 8px 24px rgba(15,23,42,.08)" }} />
+                    <Area type="monotone" dataKey={profitDisplay === "money" ? "profit" : "units"} stroke="#2563eb" strokeWidth={2.5} fill="url(#mockProfitFill)" />
+                  </AreaChart>
+                </ResponsiveContainer> : <div className="h-full flex items-center justify-center text-sm text-muted-foreground">Settle a mock bet to begin your profit graph.</div>}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-border bg-card flex flex-col shadow-sm lg:col-span-2 min-w-0">
             <CardHeader className="pb-0 border-b border-border">
               <div className="flex items-center justify-between mb-3">
-                <CardTitle className="text-sm font-display uppercase tracking-wider">Sim History</CardTitle>
+                <CardTitle className="text-lg font-display">Bet History</CardTitle>
                 <div className="flex rounded-lg border border-border overflow-hidden">
                   <button
                     onClick={() => setHistoryView("table")}
-                    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold transition-colors ${historyView === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors ${historyView === "table" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
                   >
                     <List className="w-3 h-3" /> Table
                   </button>
                   <button
                     onClick={() => setHistoryView("calendar")}
-                    className={`flex items-center gap-1.5 px-3 py-1 text-xs font-semibold transition-colors ${historyView === "calendar" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-semibold transition-colors ${historyView === "calendar" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}
                   >
                     <CalendarDays className="w-3 h-3" /> Calendar
                   </button>
@@ -334,66 +488,72 @@ export default function Simulator() {
 
             {historyView === "calendar" && (
               <CardContent className="pt-5 flex-1 overflow-auto">
-                <BetCalendar bets={bets ?? []} label="Simulator" />
+                <BetCalendar bets={betList} label="Mock Betting" showDayDetails />
               </CardContent>
             )}
 
             {historyView === "table" && (
-              <CardContent className="p-0 flex-1 overflow-auto">
-                <Table>
+              <CardContent className="p-0 flex-1 overflow-hidden">
+                <Table className="hidden xl:table w-full table-fixed">
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="pl-5">Date</TableHead>
-                      <TableHead>Play</TableHead>
-                      <TableHead className="text-right">Risk / Win</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
-                      <TableHead className="text-right pr-5">Action</TableHead>
+                      <TableHead className="w-[10%] pl-4 text-xs font-semibold">Date</TableHead>
+                      <TableHead className="w-[20%] text-xs font-semibold">Bet</TableHead>
+                      <TableHead className="w-[10%] text-right text-xs font-semibold">Wager</TableHead>
+                      <TableHead className="w-[9%] text-right text-xs font-semibold">Odds</TableHead>
+                      <TableHead className="w-[15%] text-right text-xs font-semibold">Profit | Units</TableHead>
+                      <TableHead className="w-[12%] text-right text-xs font-semibold">Payout</TableHead>
+                      <TableHead className="w-[10%] text-center text-xs font-semibold">Status</TableHead>
+                      <TableHead className="w-[14%] text-right pr-4 text-xs font-semibold">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {betsLoading ? (
-                      <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
-                    ) : bets?.length ? (
-                      bets.map(bet => (
-                        <TableRow key={bet.id}>
-                          <TableCell className="pl-5 text-muted-foreground text-xs whitespace-nowrap">{format(new Date(bet.createdAt), "MMM d")}</TableCell>
-                          <TableCell>
-                            <div className="font-medium text-sm">{bet.description}</div>
-                            <div className="text-[10px] text-muted-foreground uppercase mt-0.5">{bet.sport} · {bet.betType}</div>
+                      <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">Loading…</TableCell></TableRow>
+                    ) : betList.length ? (
+                      betList.map(bet => {
+                        const winnings = bet.status === "won" ? (bet.actualPayout ?? bet.potentialPayout) - bet.wager : bet.status === "lost" ? -bet.wager : bet.status === "pending" ? bet.potentialPayout - bet.wager : 0;
+                        const totalPayout = bet.status === "pending" ? bet.potentialPayout : bet.actualPayout;
+                        return <TableRow key={bet.id}>
+                          <TableCell className="pl-4 text-slate-600 text-xs font-medium whitespace-nowrap">{format(new Date(bet.createdAt), "MMM d")}</TableCell>
+                          <TableCell className="pr-2">
+                            <div className="font-display font-semibold text-sm text-slate-900 truncate" title={bet.description}>{bet.description}</div>
+                            <div className="text-xs text-muted-foreground mt-1">{bet.sport} · {formatBetType(bet.betType)}</div>
                           </TableCell>
-                          <TableCell className="text-right">
-                            <div className="font-mono text-sm">{formatCurrency(bet.wager)} <span className="text-muted-foreground">@</span> {formatOdds(bet.odds)}</div>
-                            <div className="font-mono text-xs text-green-400 mt-0.5">{formatCurrency(bet.potentialPayout)}</div>
+                          <TableCell className="text-right font-mono text-sm font-semibold text-slate-900 whitespace-nowrap">{formatCurrency(bet.wager)}</TableCell>
+                          <TableCell className="text-right font-mono text-sm text-slate-800 whitespace-nowrap">{formatOdds(bet.odds)}</TableCell>
+                          <TableCell className={`text-right font-mono text-xs font-semibold whitespace-nowrap ${winnings > 0 ? "text-green-400" : winnings < 0 ? "text-red-400" : "text-slate-600"}`}>
+                            {winnings > 0 ? "+" : ""}{formatCurrency(winnings)} <span className="text-slate-300">|</span> {formatUnits(winnings, unitSize)}
                           </TableCell>
+                          <TableCell className="text-right font-mono text-sm font-semibold text-slate-900 whitespace-nowrap">{totalPayout == null ? "—" : formatCurrency(totalPayout)}{bet.status === "pending" && <div className="text-[9px] font-sans font-normal text-muted-foreground">Potential</div>}</TableCell>
                           <TableCell className="text-center">
-                            {bet.status === "pending" && <Badge variant="outline" className="text-xs">Pending</Badge>}
-                            {bet.status === "won"     && <Badge variant="success"     className="text-xs">Won</Badge>}
-                            {bet.status === "lost"    && <Badge variant="destructive" className="text-xs">Lost</Badge>}
-                            {bet.status === "push"    && <Badge variant="outline"     className="text-xs">Push</Badge>}
+                            {bet.status === "pending" && <Badge variant="outline" className="min-w-[64px] justify-center text-sm px-2.5 py-0.5">Pending</Badge>}
+                            {bet.status === "won"     && <Badge variant="success"     className="min-w-[64px] justify-center text-sm px-2.5 py-0.5">Won</Badge>}
+                            {bet.status === "lost"    && <Badge variant="destructive" className="min-w-[64px] justify-center text-sm px-2.5 py-0.5">Lost</Badge>}
+                            {bet.status === "push"    && <Badge variant="outline"     className="min-w-[64px] justify-center text-sm px-2.5 py-0.5">Push</Badge>}
                           </TableCell>
-                          <TableCell className="text-right pr-5">
-                            {bet.status === "pending" ? (
-                              <div className="flex items-center justify-end gap-1.5">
-                                <button onClick={() => handleSettle(bet.id, "won")} className="w-7 h-7 rounded bg-green-500/10 hover:bg-green-500/25 text-green-400 flex items-center justify-center transition-colors">
-                                  <CheckCircle2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button onClick={() => handleSettle(bet.id, "lost")} className="w-7 h-7 rounded bg-destructive/10 hover:bg-destructive/25 text-destructive flex items-center justify-center transition-colors">
-                                  <XCircle className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ) : (
-                              <span className={`font-mono text-xs font-semibold ${bet.actualPayout && bet.actualPayout > bet.wager ? "text-green-400" : "text-muted-foreground"}`}>
-                                {bet.actualPayout != null ? formatCurrency(bet.actualPayout) : "–"}
-                              </span>
-                            )}
+                          <TableCell className="text-right pr-4">
+                            <div className="flex items-center justify-end gap-1">
+                              <button aria-label="Mark bet as won" title="Mark won" disabled={settleBet.isPending || bet.status === "won"} onClick={() => handleSettle(bet.id, "won")} className="w-7 h-7 rounded-md bg-green-500/10 hover:bg-green-500/20 text-green-400 disabled:opacity-35 flex items-center justify-center transition-colors"><CheckCircle2 className="w-3.5 h-3.5" /></button>
+                              <button aria-label="Mark bet as lost" title="Mark lost" disabled={settleBet.isPending || bet.status === "lost"} onClick={() => handleSettle(bet.id, "lost")} className="w-7 h-7 rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-400 disabled:opacity-35 flex items-center justify-center transition-colors"><XCircle className="w-3.5 h-3.5" /></button>
+                              <button aria-label="Mark bet as push" title="Mark push" disabled={settleBet.isPending || bet.status === "push"} onClick={() => handleSettle(bet.id, "push")} className="w-7 h-7 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 disabled:opacity-35 flex items-center justify-center transition-colors"><MinusCircle className="w-3.5 h-3.5" /></button>
+                              <button aria-label="Configure mock bet" title="Configure bet" onClick={() => openConfigure(bet)} className="w-7 h-7 rounded-md border border-border hover:bg-muted text-slate-600 flex items-center justify-center transition-colors"><Edit2 className="w-3.5 h-3.5" /></button>
+                            </div>
                           </TableCell>
-                        </TableRow>
-                      ))
+                        </TableRow>;
+                      })
                     ) : (
-                      <TableRow><TableCell colSpan={5} className="text-center py-16 text-muted-foreground text-sm">No simulator bets yet.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={8} className="text-center py-16 text-muted-foreground text-sm">No mock bets yet.</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
+                <div className="xl:hidden divide-y divide-border">
+                  {betsLoading ? <div className="p-8 text-center text-sm text-muted-foreground">Loading…</div> : betList.length ? betList.map(bet => {
+                    const winnings = bet.status === "won" ? (bet.actualPayout ?? bet.potentialPayout) - bet.wager : bet.status === "lost" ? -bet.wager : bet.status === "pending" ? bet.potentialPayout - bet.wager : 0;
+                    const totalPayout = bet.status === "pending" ? bet.potentialPayout : bet.actualPayout;
+                    return <div key={bet.id} className="p-4 space-y-3"><div className="flex items-start justify-between gap-3"><div><div className="font-display font-semibold text-slate-900">{bet.description}</div><div className="text-xs text-muted-foreground mt-1">{format(new Date(bet.createdAt), "MMM d")} · {bet.sport} · {formatBetType(bet.betType)}</div></div>{bet.status === "pending" ? <Badge variant="outline" className="min-w-[64px] justify-center">Pending</Badge> : bet.status === "won" ? <Badge variant="success" className="min-w-[64px] justify-center">Won</Badge> : bet.status === "lost" ? <Badge variant="destructive" className="min-w-[64px] justify-center">Lost</Badge> : <Badge variant="outline" className="min-w-[64px] justify-center">Push</Badge>}</div><div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm"><div><div className="text-xs text-muted-foreground">Wager</div><div className="font-mono font-semibold">{formatCurrency(bet.wager)}</div></div><div><div className="text-xs text-muted-foreground">Odds</div><div className="font-mono font-semibold">{formatOdds(bet.odds)}</div></div><div><div className="text-xs text-muted-foreground">Profit | Units</div><div className={`font-mono font-semibold ${winnings > 0 ? "text-green-400" : winnings < 0 ? "text-red-400" : ""}`}>{winnings > 0 ? "+" : ""}{formatCurrency(winnings)} <span className="text-slate-300">|</span> {formatUnits(winnings, unitSize)}</div></div><div><div className="text-xs text-muted-foreground">Payout</div><div className="font-mono font-semibold">{totalPayout == null ? "—" : formatCurrency(totalPayout)}</div></div></div><div className="flex justify-end gap-1.5"><Button size="sm" variant="outline" disabled={bet.status === "won"} onClick={() => handleSettle(bet.id, "won")}>Won</Button><Button size="sm" variant="outline" disabled={bet.status === "lost"} onClick={() => handleSettle(bet.id, "lost")}>Lost</Button><Button size="sm" variant="outline" disabled={bet.status === "push"} onClick={() => handleSettle(bet.id, "push")}>Push</Button><Button size="sm" onClick={() => openConfigure(bet)}>Configure</Button></div></div>;
+                  }) : <div className="p-10 text-center text-sm text-muted-foreground">No mock bets yet.</div>}
+                </div>
               </CardContent>
             )}
           </Card>
@@ -401,11 +561,39 @@ export default function Simulator() {
       </div>
 
       {/* ── Edit Balance modal ────────────────────── */}
+      <Modal open={unitOpen} onClose={() => setUnitOpen(false)} title="Unit Size">
+        <div className="space-y-4">
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5">
+            <div className="text-xs font-medium text-emerald-700">Current Unit</div>
+            <div className="font-mono text-xl font-bold text-emerald-700">1u = {formatCurrency(unitSize)}</div>
+          </div>
+          <div>
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-muted-foreground">Sizing Method</div>
+            <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-border">
+              <button type="button" onClick={() => setUnitModeDraft("auto")} className={`whitespace-nowrap px-3 py-2 text-sm font-semibold transition-colors ${unitModeDraft === "auto" ? "bg-primary text-primary-foreground" : "bg-white text-slate-600 hover:bg-muted"}`}>Auto · 1%</button>
+              <button type="button" onClick={() => setUnitModeDraft("custom")} className={`whitespace-nowrap border-l border-border px-3 py-2 text-sm font-semibold transition-colors ${unitModeDraft === "custom" ? "bg-primary text-primary-foreground" : "bg-white text-slate-600 hover:bg-muted"}`}>Custom</button>
+            </div>
+          </div>
+          {unitModeDraft === "custom" ? (
+            <div>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wider text-muted-foreground">Dollar Value Per Unit</label>
+              <Input aria-label="Custom unit size" type="number" min="0.01" step="0.01" value={customUnitInput} onChange={(event) => setCustomUnitInput(event.target.value)} className="bg-slate-50 font-mono" />
+            </div>
+          ) : (
+            <p className="text-xs leading-relaxed text-muted-foreground">Automatically uses 1% of your {formatCurrency(wallet?.startingBalance ?? 0)} starting bankroll.</p>
+          )}
+          <div className="flex gap-2 pt-1">
+            <Button type="button" variant="outline" onClick={() => setUnitOpen(false)} className="flex-1" disabled={unitsBusy}>Cancel</Button>
+            <Button type="button" onClick={handleSaveUnits} className="flex-1" disabled={unitsBusy}>{unitsBusy ? "Saving..." : "Save Unit Size"}</Button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal open={editOpen} onClose={() => setEditOpen(false)} title="Edit Balance">
         <div className="space-y-4">
           {/* Set balance */}
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1.5">Set Balance To</label>
+            <label className="text-sm font-medium text-slate-700 block mb-1.5">Set Balance To</label>
             <div className="flex gap-2">
               <Input
                 type="number" step="0.01" min="0"
@@ -420,23 +608,23 @@ export default function Simulator() {
 
           <div className="relative flex items-center gap-3">
             <div className="flex-1 h-px bg-border" />
-            <span className="text-xs text-muted-foreground">or adjust</span>
+            <span className="text-sm text-muted-foreground">or adjust</span>
             <div className="flex-1 h-px bg-border" />
           </div>
 
           {/* Add / subtract */}
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1.5">Add / Remove Funds</label>
+            <label className="text-sm font-medium text-slate-700 block mb-1.5">Add or Remove Funds</label>
             <div className="flex gap-2 mb-2">
               <button
                 onClick={() => setAdjustDir("add")}
-                className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold border rounded-lg transition-colors ${adjustDir === "add" ? "border-green-500 bg-green-500/10 text-green-400" : "border-border text-muted-foreground hover:bg-muted"}`}
+                className={`flex-1 flex items-center justify-center gap-1 py-2 text-sm font-semibold border rounded-lg transition-colors ${adjustDir === "add" ? "border-emerald-600 bg-emerald-50 text-emerald-700" : "border-border text-muted-foreground hover:bg-muted"}`}
               >
                 <Plus className="w-3 h-3" /> Add
               </button>
               <button
                 onClick={() => setAdjustDir("subtract")}
-                className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-xs font-semibold border rounded-lg transition-colors ${adjustDir === "subtract" ? "border-red-500 bg-red-500/10 text-red-400" : "border-border text-muted-foreground hover:bg-muted"}`}
+                className={`flex-1 flex items-center justify-center gap-1 py-2 text-sm font-semibold border rounded-lg transition-colors ${adjustDir === "subtract" ? "border-red-600 bg-red-50 text-red-700" : "border-border text-muted-foreground hover:bg-muted"}`}
               >
                 <Minus className="w-3 h-3" /> Remove
               </button>
@@ -455,7 +643,7 @@ export default function Simulator() {
             <div className="flex gap-1.5 mt-2">
               {[100, 500, 1000, 5000].map(a => (
                 <button key={a} onClick={() => setAdjustAmt(String(a))}
-                  className="flex-1 py-1 text-[11px] font-mono border border-border rounded hover:bg-muted transition-colors">
+                  className="flex-1 py-1.5 text-sm font-mono border border-border rounded hover:bg-muted transition-colors">
                   {a >= 1000 ? `${a/1000}k` : a}
                 </button>
               ))}
@@ -464,14 +652,33 @@ export default function Simulator() {
         </div>
       </Modal>
 
+      <Modal open={configureOpen} onClose={() => setConfigureOpen(false)} title="Configure Mock Bet" wide>
+        <div className="space-y-4">
+          <div><label className="text-sm font-medium text-slate-700 block mb-1.5">Description</label><Input value={configuredDescription} onChange={e => setConfiguredDescription(e.target.value)} /></div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div><label className="text-sm font-medium text-slate-700 block mb-1.5">Wager ($)</label><Input type="number" min="0.01" step="0.01" className="font-mono" value={configuredWager} onChange={e => setConfiguredWager(e.target.value)} /></div>
+            <div><label className="text-sm font-medium text-slate-700 block mb-1.5">Odds</label><Input type="number" className="font-mono" value={configuredOdds} onChange={e => setConfiguredOdds(e.target.value)} /></div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div><label className="text-sm font-medium text-slate-700 block mb-1.5">Sport</label><Select value={configuredSport} onValueChange={setConfiguredSport}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["NBA","WNBA","MLB","NFL"].map(item => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></div>
+            <div><label className="text-sm font-medium text-slate-700 block mb-1.5">Bet Type</label><Select value={configuredType} onValueChange={setConfiguredType}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{BET_TYPE_OPTIONS.map(option => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select></div>
+            <div><label className="text-sm font-medium text-slate-700 block mb-1.5">Status</label><Select value={configuredStatus} onValueChange={value => setConfiguredStatus(value as typeof configuredStatus)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="won">Won</SelectItem><SelectItem value="lost">Lost</SelectItem><SelectItem value="push">Push</SelectItem></SelectContent></Select></div>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
+            {deleteConfirm ? <div className="flex items-center gap-2"><span className="text-sm text-muted-foreground">Remove this bet?</span><Button size="sm" variant="ghost" onClick={() => setDeleteConfirm(false)}>Cancel</Button><Button size="sm" variant="destructive" disabled={configureBusy} onClick={handleDeleteBet}>Remove</Button></div> : <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={() => setDeleteConfirm(true)}><Trash2 className="w-4 h-4 mr-2" />Remove bet</Button>}
+            <div className="flex gap-2 ml-auto"><Button variant="outline" onClick={() => setConfigureOpen(false)}>Cancel</Button><Button disabled={configureBusy} onClick={handleConfigureSave}>{configureBusy ? "Saving…" : "Save changes"}</Button></div>
+          </div>
+        </div>
+      </Modal>
+
       {/* ── Reset modal ───────────────────────────── */}
       <Modal open={resetOpen} onClose={() => setResetOpen(false)} title="Reset Wallet">
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            This will <span className="text-foreground font-medium">delete all sim bet history</span> and reset your balance to the starting amount.
+            This will <span className="text-foreground font-medium">delete all mock betting history</span> and reset your balance to the starting amount.
           </p>
           <div>
-            <label className="text-xs text-muted-foreground uppercase tracking-widest block mb-1.5">Starting Balance</label>
+            <label className="text-sm font-medium text-slate-700 block mb-1.5">Starting Balance</label>
             <Input
               type="number" step="100" min="100"
               value={newStart}
@@ -479,9 +686,9 @@ export default function Simulator() {
               className="bg-muted/30 font-mono"
             />
             <div className="flex gap-1.5 mt-2">
-              {[1000, 5000, 10000, 25000].map(a => (
+              {[100, 500, 1000, 5000].map(a => (
                 <button key={a} onClick={() => setNewStart(String(a))}
-                  className={`flex-1 py-1 text-[11px] font-mono border rounded transition-colors ${newStart === String(a) ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}>
+                  className={`flex-1 py-1.5 text-sm font-mono border rounded transition-colors ${newStart === String(a) ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}>
                   {a >= 1000 ? `${a/1000}k` : a}
                 </button>
               ))}

@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "incremental": false,
+    "noEmit": true,
+    "types": ["node"],
+    "typeRoots": ["../artifacts/api-server/node_modules/@types"]
+  },
+  "include": ["index.ts"]
+}

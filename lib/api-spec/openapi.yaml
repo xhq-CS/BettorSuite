@@ -869,12 +869,15 @@ components:
     # ── Simulator ────────────────────────────────────────────────────────
     SimulatorWallet:
       type: object
-      required: [id, userId, balance, startingBalance, totalBets, wins, losses, totalProfit]
+      required: [id, userId, balance, startingBalance, unitMode, unitSize, customUnitSize, totalBets, wins, losses, totalProfit]
       properties:
         id:              { type: integer }
         userId:          { type: integer }
         balance:         { type: number }
         startingBalance: { type: number }
+        unitMode:        { type: string, enum: [auto, custom] }
+        unitSize:        { type: number }
+        customUnitSize:  { type: number }
         totalBets:       { type: integer }
         wins:            { type: integer }
         losses:          { type: integer }

@@ -5,12 +5,16 @@
  * PropEdge API - sports betting stats tracker and community
  * OpenAPI spec version: 0.1.0
  */
+import type { SimulatorWalletUnitMode } from './simulatorWalletUnitMode';
 
 export interface SimulatorWallet {
   id: number;
   userId: number;
   balance: number;
   startingBalance: number;
+  unitMode: SimulatorWalletUnitMode;
+  unitSize: number;
+  customUnitSize: number;
   totalBets: number;
   wins: number;
   losses: number;

@@ -1,42 +1,22 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { usersTable, betsTable } from "@workspace/db";
+import { db, usersTable, betsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 export const leaderboardRouter = Router();
 
-// GET /leaderboard
-leaderboardRouter.get("/", async (req, res) => {
-  const users = await db.select().from(usersTable).limit(20);
-
-  const entries = await Promise.all(
-    users.map(async (u) => {
-      const bets = await db.select().from(betsTable).where(eq(betsTable.userId, u.id));
-      const settled = bets.filter((b) => ["won", "lost", "push"].includes(b.status));
-      const wins = settled.filter((b) => b.status === "won").length;
-      const winRate = settled.length > 0 ? wins / settled.length : 0;
-      const totalWagered = bets.reduce((sum, b) => sum + Number(b.wager), 0);
-      const totalReturned = bets
-        .filter((b) => b.actualPayout !== null)
-        .reduce((sum, b) => sum + Number(b.actualPayout), 0);
-      const totalProfit = totalReturned - totalWagered;
-      const roi = totalWagered > 0 ? totalProfit / totalWagered : 0;
-      return {
-        userId: u.id,
-        username: u.username,
-        avatarUrl: u.avatarUrl ?? null,
-        totalBets: bets.length,
-        wins,
-        winRate,
-        totalProfit,
-        roi,
-        rank: 0,
-      };
-    })
-  );
-
-  entries.sort((a, b) => b.winRate - a.winRate);
-  entries.forEach((e, i) => { e.rank = i + 1; });
-
-  res.json(entries);
+leaderboardRouter.get("/", async (_req, res) => {
+  const users = await db.select().from(usersTable).limit(100);
+  const entries = (await Promise.all(users.map(async (user) => {
+    const bets = await db.select().from(betsTable).where(eq(betsTable.userId, user.id));
+    const settled = bets.filter((bet) => ["won", "lost", "push"].includes(bet.status));
+    if (!settled.length) return null;
+    const wins = settled.filter((bet) => bet.status === "won").length;
+    const totalWagered = bets.reduce((sum, bet) => sum + Number(bet.wager), 0);
+    const totalReturned = bets.reduce((sum, bet) => sum + Number(bet.actualPayout ?? 0), 0);
+    const totalProfit = totalReturned - totalWagered;
+    return { userId:user.id, username:user.username, avatarUrl:user.avatarUrl ?? null, totalBets:bets.length, wins, winRate:wins/settled.length, totalProfit, roi:totalWagered ? totalProfit/totalWagered : 0, rank:0 };
+  }))).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  entries.sort((a,b) => b.roi - a.roi || b.winRate - a.winRate);
+  entries.forEach((entry,index) => { entry.rank=index+1; });
+  return res.json(entries);
 });

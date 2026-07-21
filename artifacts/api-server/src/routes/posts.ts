@@ -13,9 +13,10 @@ import {
   LikePostParams,
   ListPostsQueryParams,
 } from "@workspace/api-zod";
+import type { AuthRequest } from "../middleware/auth";
 
 export const postsRouter = Router();
-const DEFAULT_USER_ID = 1;
+const currentUserId = (req: unknown) => (req as AuthRequest).userId;
 
 // GET /posts
 postsRouter.get("/", async (req, res) => {
@@ -33,6 +34,7 @@ postsRouter.get("/", async (req, res) => {
       sport: postsTable.sport,
       playerTag: postsTable.playerTag,
       createdAt: postsTable.createdAt,
+      editedAt: postsTable.editedAt,
     })
     .from(postsTable)
     .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
@@ -64,7 +66,7 @@ postsRouter.get("/", async (req, res) => {
           .where(
             and(
               inArray(postLikesTable.postId, postIds),
-              eq(postLikesTable.userId, DEFAULT_USER_ID)
+              eq(postLikesTable.userId, currentUserId(req))
             )
           )
       : [];
@@ -84,6 +86,7 @@ postsRouter.get("/", async (req, res) => {
       sport: p.sport ?? null,
       playerTag: p.playerTag ?? null,
       createdAt: p.createdAt.toISOString(),
+      editedAt: p.editedAt?.toISOString() ?? null,
     })),
     hasMore,
     nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
@@ -96,7 +99,7 @@ postsRouter.post("/", async (req, res) => {
   const [post] = await db
     .insert(postsTable)
     .values({
-      userId: DEFAULT_USER_ID,
+      userId: currentUserId(req),
       content: body.content,
       sport: body.sport ?? null,
       playerTag: body.playerTag ?? null,
@@ -106,7 +109,7 @@ postsRouter.post("/", async (req, res) => {
   const [user] = await db
     .select({ username: usersTable.username, avatarUrl: usersTable.avatarUrl })
     .from(usersTable)
-    .where(eq(usersTable.id, DEFAULT_USER_ID));
+    .where(eq(usersTable.id, currentUserId(req)));
 
   res.status(201).json({
     id: post.id,
@@ -119,6 +122,7 @@ postsRouter.post("/", async (req, res) => {
     sport: post.sport,
     playerTag: post.playerTag,
     createdAt: post.createdAt.toISOString(),
+    editedAt: post.editedAt?.toISOString() ?? null,
   });
 });
 
@@ -135,6 +139,7 @@ postsRouter.get("/:id", async (req, res) => {
       sport: postsTable.sport,
       playerTag: postsTable.playerTag,
       createdAt: postsTable.createdAt,
+      editedAt: postsTable.editedAt,
     })
     .from(postsTable)
     .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
@@ -150,7 +155,7 @@ postsRouter.get("/:id", async (req, res) => {
   const [userLike] = await db
     .select()
     .from(postLikesTable)
-    .where(and(eq(postLikesTable.postId, id), eq(postLikesTable.userId, DEFAULT_USER_ID)));
+    .where(and(eq(postLikesTable.postId, id), eq(postLikesTable.userId, currentUserId(req))));
 
   res.json({
     id: post.id,
@@ -163,14 +168,35 @@ postsRouter.get("/:id", async (req, res) => {
     sport: post.sport,
     playerTag: post.playerTag,
     createdAt: post.createdAt.toISOString(),
+    editedAt: post.editedAt?.toISOString() ?? null,
   });
+});
+
+// PATCH /posts/:id - authors can edit only their own War Room messages
+postsRouter.patch("/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const content = String(req.body.content ?? "").trim();
+  if (!Number.isInteger(id) || id <= 0) return void res.status(400).json({ error: "Invalid post" });
+  if (!content || content.length > 2000) {
+    return void res.status(400).json({ error: "Message must be 1-2000 characters" });
+  }
+
+  const [existing] = await db.select({ userId: postsTable.userId }).from(postsTable).where(eq(postsTable.id, id));
+  if (!existing) return void res.status(404).json({ error: "Post not found" });
+  if (existing.userId !== currentUserId(req)) return void res.status(403).json({ error: "You can only edit your own message" });
+
+  const [post] = await db.update(postsTable).set({ content, editedAt: new Date() }).where(eq(postsTable.id, id)).returning();
+  return res.json({ ...post, createdAt: post.createdAt.toISOString(), editedAt: post.editedAt?.toISOString() ?? null });
 });
 
 // DELETE /posts/:id
 postsRouter.delete("/:id", async (req, res) => {
   const { id } = DeletePostParams.parse({ id: Number(req.params.id) });
+  const [existing] = await db.select({ userId: postsTable.userId }).from(postsTable).where(eq(postsTable.id, id));
+  if (!existing) return void res.status(404).json({ error: "Post not found" });
+  if (existing.userId !== currentUserId(req)) return void res.status(403).json({ error: "You can only delete your own message" });
   await db.delete(postLikesTable).where(eq(postLikesTable.postId, id));
-  await db.delete(postsTable).where(and(eq(postsTable.id, id), eq(postsTable.userId, DEFAULT_USER_ID)));
+  await db.delete(postsTable).where(eq(postsTable.id, id));
   res.status(204).send();
 });
 
@@ -180,12 +206,12 @@ postsRouter.post("/:id/like", async (req, res) => {
   const [existing] = await db
     .select()
     .from(postLikesTable)
-    .where(and(eq(postLikesTable.postId, id), eq(postLikesTable.userId, DEFAULT_USER_ID)));
+    .where(and(eq(postLikesTable.postId, id), eq(postLikesTable.userId, currentUserId(req))));
 
   if (existing) {
     await db.delete(postLikesTable).where(eq(postLikesTable.id, existing.id));
   } else {
-    await db.insert(postLikesTable).values({ postId: id, userId: DEFAULT_USER_ID });
+    await db.insert(postLikesTable).values({ postId: id, userId: currentUserId(req) });
   }
 
   const [likeCount] = await db

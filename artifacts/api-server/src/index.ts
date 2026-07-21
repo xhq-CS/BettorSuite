@@ -1,6 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
-import { scheduleDailySync, runStartupSyncIfNeeded } from "./services/dailySync";
+import { ensureAdminAccount } from "./services/adminBootstrap";
 
 const rawPort = process.env["PORT"];
 
@@ -23,11 +23,6 @@ app.listen(port, async (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  await ensureAdminAccount(logger);
 
-  // Schedule the 5am daily sync (arms a setTimeout, non-blocking)
-  scheduleDailySync(logger);
-
-  // If no sync has run today yet, kick one off in the background
-  // (don't await — let the server finish starting up first)
-  setImmediate(() => runStartupSyncIfNeeded(logger));
 });

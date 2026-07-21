@@ -25,4 +25,14 @@ export const groupMessagesTable = pgTable("group_messages", {
   senderId: integer("sender_id").references(() => usersTable.id).notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  editedAt: timestamp("edited_at"),
+});
+
+export const groupInvitesTable = pgTable("group_invites", {
+  id: serial("id").primaryKey(),
+  groupId: integer("group_id").references(() => groupsTable.id, { onDelete: "cascade" }).notNull(),
+  userId: integer("user_id").references(() => usersTable.id, { onDelete: "cascade" }).notNull(),
+  invitedBy: integer("invited_by").references(() => usersTable.id).notNull(),
+  status: text("status").default("pending").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });

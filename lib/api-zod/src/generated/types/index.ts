@@ -38,6 +38,7 @@ export * from './simulatorBetSettle';
 export * from './simulatorBetSettleStatus';
 export * from './simulatorBetStatus';
 export * from './simulatorWallet';
+export * from './simulatorWalletUnitMode';
 export * from './team';
 export * from './teamGameStat';
 export * from './trendingProp';

@@ -8,6 +8,8 @@ export const simulatorWalletsTable = pgTable("simulator_wallets", {
   userId: integer("user_id").references(() => usersTable.id).notNull().unique(),
   balance: numeric("balance").notNull().default("1000"),
   startingBalance: numeric("starting_balance").notNull().default("1000"),
+  unitMode: text("unit_mode").notNull().default("auto"),
+  customUnitSize: numeric("custom_unit_size").notNull().default("10"),
   totalBets: integer("total_bets").notNull().default(0),
   wins: integer("wins").notNull().default(0),
   losses: integer("losses").notNull().default(0),

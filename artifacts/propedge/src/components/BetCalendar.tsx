@@ -5,23 +5,27 @@
  *   bets   – array of bet objects (real or simulator)
  *   label  – optional label shown in the header (e.g. "Tracker" | "Simulator")
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   startOfMonth, endOfMonth, eachDayOfInterval,
   getDay, format, addMonths, subMonths,
   isSameDay, isToday, parseISO,
 } from "date-fns";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
-import { formatCurrency } from "@/lib/utils";
+import { ChevronLeft, ChevronRight, CalendarDays, X } from "lucide-react";
+import { formatCurrency, formatOdds } from "@/lib/utils";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface Bet {
   id: number;
-  status: "won" | "lost" | "push" | "pending";
+  status: "won" | "lost" | "push" | "pending" | "void";
   wager: number;
   potentialPayout?: number | null;
   actualPayout?: number | null;
   createdAt: string;
+  description?: string;
+  odds?: number;
+  sport?: string | null;
+  betType?: string;
 }
 
 interface DayStat {
@@ -36,6 +40,7 @@ interface DayStat {
 interface Props {
   bets:  Bet[];
   label?: string;
+  showDayDetails?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -83,8 +88,18 @@ function profitColor(profit: number): string {
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
-export function BetCalendar({ bets, label }: Props) {
+export function BetCalendar({ bets, label, showDayDetails = false }: Props) {
   const [month, setMonth] = useState(() => startOfMonth(new Date()));
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedDay) return;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented) setSelectedDay(null);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [selectedDay]);
 
   // Group bets by calendar date string "yyyy-MM-dd"
   const betsByDay = useMemo(() => {
@@ -124,6 +139,7 @@ export function BetCalendar({ bets, label }: Props) {
   const trailingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
 
   const goToToday = () => setMonth(startOfMonth(new Date()));
+  const selectedDayBets = selectedDay ? betsByDay.get(selectedDay) ?? [] : [];
 
   return (
     <div className="space-y-3">
@@ -204,9 +220,13 @@ export function BetCalendar({ bets, label }: Props) {
             const color    = cellColor(stat, hasBets);
 
             return (
-              <div
+              <button
+                type="button"
                 key={key}
-                className={`min-h-[90px] border-r border-b border-border/50 last:border-r-0 p-2 flex flex-col gap-0.5 transition-colors hover:bg-muted/10 ${color}`}
+                onClick={() => { if (showDayDetails && hasBets) setSelectedDay(key); }}
+                disabled={!showDayDetails || !hasBets}
+                aria-label={hasBets ? `View ${dayBets.length} bet${dayBets.length === 1 ? "" : "s"} from ${format(day, "MMMM d")}` : format(day, "MMMM d")}
+                className={`min-h-[90px] border-r border-b border-border/50 last:border-r-0 p-2 flex flex-col gap-0.5 text-left transition-colors ${showDayDetails && hasBets ? "cursor-pointer hover:ring-2 hover:ring-inset hover:ring-primary/30 hover:bg-primary/5" : "cursor-default"} ${color}`}
               >
                 {/* Day number */}
                 <div className={`text-xs font-mono font-semibold self-start w-5 h-5 flex items-center justify-center rounded-full ${
@@ -241,7 +261,7 @@ export function BetCalendar({ bets, label }: Props) {
                 {!hasBets && (
                   <div className="mt-1 text-[10px] text-muted-foreground/30 font-mono">—</div>
                 )}
-              </div>
+              </button>
             );
           })}
 
@@ -271,6 +291,18 @@ export function BetCalendar({ bets, label }: Props) {
           No action
         </span>
       </div>
+
+      {selectedDay && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 backdrop-blur-sm p-4">
+        <div className="w-full max-w-2xl max-h-[80vh] overflow-hidden rounded-2xl border border-border bg-white shadow-2xl">
+          <div className="flex items-start justify-between gap-4 border-b px-5 py-4"><div><h3 className="text-lg font-semibold">Bets from {format(parseISO(selectedDay), "MMMM d, yyyy")}</h3><p className="text-sm text-muted-foreground mt-0.5">{selectedDayBets.length} {selectedDayBets.length === 1 ? "bet" : "bets"} placed</p></div><button type="button" onClick={() => setSelectedDay(null)} className="h-8 w-8 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-50 hover:text-red-600" aria-label="Close day details"><X className="w-4 h-4" /></button></div>
+          <div className="max-h-[60vh] overflow-y-auto p-5 space-y-3">
+            {selectedDayBets.map(bet => {
+              const winnings = bet.status === "won" ? (bet.actualPayout ?? bet.potentialPayout ?? 0) - bet.wager : bet.status === "lost" ? -bet.wager : 0;
+              return <div key={bet.id} className="rounded-xl border border-border p-4"><div className="flex items-start justify-between gap-3"><div><div className="font-semibold text-slate-900">{bet.description ?? "Bet"}</div><div className="text-xs text-muted-foreground mt-1">{[bet.sport, bet.betType].filter(Boolean).join(" · ")}</div></div><span className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${bet.status === "won" ? "bg-emerald-50 text-emerald-700" : bet.status === "lost" ? "bg-red-50 text-red-700" : bet.status === "push" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-700"}`}>{bet.status}</span></div><div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm"><div><div className="text-xs text-muted-foreground">Wager</div><div className="font-mono font-semibold">{formatCurrency(bet.wager)}</div></div><div><div className="text-xs text-muted-foreground">Odds</div><div className="font-mono font-semibold">{bet.odds == null ? "—" : formatOdds(bet.odds)}</div></div><div><div className="text-xs text-muted-foreground">Winnings</div><div className={`font-mono font-semibold ${winnings > 0 ? "text-emerald-700" : winnings < 0 ? "text-red-600" : ""}`}>{winnings > 0 ? "+" : ""}{formatCurrency(winnings)}</div></div><div><div className="text-xs text-muted-foreground">Total payout</div><div className="font-mono font-semibold">{formatCurrency(bet.status === "pending" ? bet.potentialPayout ?? 0 : bet.actualPayout ?? 0)}</div></div></div></div>;
+            })}
+          </div>
+        </div>
+      </div>}
     </div>
   );
 }

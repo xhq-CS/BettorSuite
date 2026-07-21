@@ -218,11 +218,22 @@ export interface BetSummary {
   roi: number;
 }
 
+export type SimulatorWalletUnitMode = typeof SimulatorWalletUnitMode[keyof typeof SimulatorWalletUnitMode];
+
+
+export const SimulatorWalletUnitMode = {
+  auto: 'auto',
+  custom: 'custom',
+} as const;
+
 export interface SimulatorWallet {
   id: number;
   userId: number;
   balance: number;
   startingBalance: number;
+  unitMode: SimulatorWalletUnitMode;
+  unitSize: number;
+  customUnitSize: number;
   totalBets: number;
   wins: number;
   losses: number;

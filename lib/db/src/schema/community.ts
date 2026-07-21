@@ -10,6 +10,7 @@ export const postsTable = pgTable("posts", {
   sport: text("sport"),
   playerTag: text("player_tag"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  editedAt: timestamp("edited_at"),
 });
 
 export const postLikesTable = pgTable("post_likes", {
@@ -40,7 +41,7 @@ export const messagesTable = pgTable("messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertPostSchema = createInsertSchema(postsTable).omit({ id: true, createdAt: true });
+export const insertPostSchema = createInsertSchema(postsTable).omit({ id: true, createdAt: true, editedAt: true });
 export const insertMessageSchema = createInsertSchema(messagesTable).omit({ id: true, createdAt: true });
 
 export type Post = typeof postsTable.$inferSelect;

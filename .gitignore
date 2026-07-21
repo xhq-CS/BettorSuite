@@ -10,6 +10,7 @@ out-tsc
 
 # dependencies
 node_modules
+.pnpm-store
 
 # IDEs and editors
 /.idea
@@ -20,14 +21,16 @@ node_modules
 .settings/
 *.sublime-workspace
 
-# IDE - VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+# Local tooling
+/.agents/
+/.config/
+/.vscode/
 
 # misc
+/.vercel/
+.env
+.env.*
+!.env.example
 /.sass-cache
 /connect.lock
 /coverage

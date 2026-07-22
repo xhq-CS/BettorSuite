@@ -41,12 +41,10 @@ async function ownedGroup(groupId: number, userId: number) {
   if (!group) return undefined;
   if (group.creatorId === userId) return group;
 
-  // Groups created before ownership was introduced may not have creator_id.
-  // Their original creator was still recorded as the sole admin member.
-  if (group.creatorId === null) {
-    const member = await membership(groupId, userId);
-    if (member?.role === "admin") return group;
-  }
+  // Group admins have the same moderation controls as the original owner.
+  // This also supports groups created before creator_id was introduced.
+  const member = await membership(groupId, userId);
+  if (member?.role === "admin") return group;
   return undefined;
 }
 
@@ -101,15 +99,76 @@ groupsRouter.post("/", async (req, res) => {
   await db
     .insert(groupMembersTable)
     .values({ groupId: group.id, userId, role: "admin" });
-  res
-    .status(201)
-    .json({
-      ...group,
-      memberCount: 1,
-      isMember: true,
-      role: "admin",
-      createdAt: group.createdAt.toISOString(),
-    });
+  res.status(201).json({
+    ...group,
+    memberCount: 1,
+    isMember: true,
+    role: "admin",
+    createdAt: group.createdAt.toISOString(),
+  });
+});
+groupsRouter.get("/invites/pending", async (req, res) => {
+  const userId = uid(req);
+  const rows = await db
+    .select({
+      id: groupInvitesTable.id,
+      groupId: groupInvitesTable.groupId,
+      groupName: groupsTable.name,
+      groupDescription: groupsTable.description,
+      invitedBy: groupInvitesTable.invitedBy,
+      createdAt: groupInvitesTable.createdAt,
+      memberCount: sql<number>`(SELECT count(*) FROM group_members WHERE group_id = ${groupsTable.id})::int`,
+    })
+    .from(groupInvitesTable)
+    .innerJoin(groupsTable, eq(groupInvitesTable.groupId, groupsTable.id))
+    .where(
+      and(
+        eq(groupInvitesTable.userId, userId),
+        eq(groupInvitesTable.status, "pending"),
+      ),
+    )
+    .orderBy(desc(groupInvitesTable.createdAt))
+    .limit(20);
+
+  const result = await Promise.all(
+    rows.map(async (invite) => {
+      const [inviter] = await db
+        .select({ username: usersTable.username })
+        .from(usersTable)
+        .where(eq(usersTable.id, invite.invitedBy));
+      return {
+        ...invite,
+        invitedByUsername: inviter?.username ?? "bettor",
+        createdAt: invite.createdAt.toISOString(),
+      };
+    }),
+  );
+  return res.json(result);
+});
+groupsRouter.post("/invites/:inviteId/decline", async (req, res) => {
+  const inviteId = Number(req.params.inviteId);
+  const userId = uid(req);
+  if (!Number.isInteger(inviteId)) {
+    return void res.status(400).json({ error: "Invalid invitation" });
+  }
+  const [invite] = await db
+    .select()
+    .from(groupInvitesTable)
+    .where(
+      and(
+        eq(groupInvitesTable.id, inviteId),
+        eq(groupInvitesTable.userId, userId),
+        eq(groupInvitesTable.status, "pending"),
+      ),
+    );
+  if (!invite) {
+    return void res.status(404).json({ error: "Invitation not found" });
+  }
+  await db
+    .update(groupInvitesTable)
+    .set({ status: "declined" })
+    .where(eq(groupInvitesTable.id, inviteId));
+  return res.json({ declined: true });
 });
 groupsRouter.get("/:id", async (req, res) => {
   const groupId = Number(req.params.id);
@@ -127,9 +186,7 @@ groupsRouter.get("/:id", async (req, res) => {
     .innerJoin(usersTable, eq(groupMembersTable.userId, usersTable.id))
     .where(eq(groupMembersTable.groupId, groupId));
   const mine = members.find((member) => member.userId === userId);
-  const isOwner =
-    group.creatorId === userId ||
-    (group.creatorId === null && mine?.role === "admin");
+  const isOwner = group.creatorId === userId || mine?.role === "admin";
   const invites = isOwner
     ? await db
         .select({
@@ -347,10 +404,13 @@ groupsRouter.delete("/:id/messages/:messageId", async (req, res) => {
     );
   if (!existing)
     return void res.status(404).json({ error: "Message not found" });
-  if (existing.senderId !== userId)
+  const canModerate = Boolean(await ownedGroup(groupId, userId));
+  if (existing.senderId !== userId && !canModerate)
     return void res
       .status(403)
-      .json({ error: "You can only delete your own message" });
+      .json({
+        error: "Only the sender or a group admin can delete this message",
+      });
   await db
     .delete(groupMessagesTable)
     .where(eq(groupMessagesTable.id, messageId));
@@ -399,14 +459,12 @@ groupsRouter.post("/:id/invite", async (req, res) => {
       ),
     );
   if (!pending)
-    await db
-      .insert(groupInvitesTable)
-      .values({
-        groupId,
-        userId: invitedUserId,
-        invitedBy: userId,
-        status: "pending",
-      });
+    await db.insert(groupInvitesTable).values({
+      groupId,
+      userId: invitedUserId,
+      invitedBy: userId,
+      status: "pending",
+    });
   return res.json({
     invited: true,
     message: `@${target.username} was invited to ${group.name}`,

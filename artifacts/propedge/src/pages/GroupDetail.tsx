@@ -42,7 +42,7 @@ type Group = {
   id: number;
   name: string;
   description: string | null;
-  creatorId: number;
+  creatorId: number | null;
   isMember: boolean;
   isOwner: boolean;
   role: string | null;
@@ -284,6 +284,7 @@ export default function GroupDetail() {
               <div className="flex min-h-[320px] max-h-[430px] flex-1 flex-col gap-3 overflow-y-auto px-2 py-3">
                 {messages.data?.map((item) => {
                   const mine = item.senderId === user?.id;
+                  const canDelete = mine || owner;
                   const isEditing = editingId === item.id;
                   const hasAttachment = Boolean(
                     item.betShare || item.dailyCard,
@@ -385,7 +386,7 @@ export default function GroupDetail() {
                               </div>
                             )}
                           </div>
-                          {mine &&
+                          {canDelete &&
                             !isEditing &&
                             (deletingId === item.id ? (
                               <div className="mb-0.5 flex items-center gap-1 rounded-full border border-red-100 bg-white px-1.5 py-1 shadow-sm">
@@ -414,28 +415,38 @@ export default function GroupDetail() {
                               </div>
                             ) : (
                               <div className="mb-0.5 flex gap-0.5 opacity-70 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                                <Button
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7 rounded-full text-slate-500"
-                                  aria-label="Edit message"
-                                  title="Edit message"
-                                  onClick={() => {
-                                    setDeletingId(null);
-                                    setEditingId(item.id);
-                                    setEditText(item.content);
-                                  }}
-                                >
-                                  <Pencil className="w-3.5 h-3.5" />
-                                </Button>
+                                {mine && (
+                                  <Button
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-7 w-7 rounded-full text-slate-500"
+                                    aria-label="Edit message"
+                                    title="Edit message"
+                                    onClick={() => {
+                                      setDeletingId(null);
+                                      setEditingId(item.id);
+                                      setEditText(item.content);
+                                    }}
+                                  >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                  </Button>
+                                )}
                                 <Button
                                   type="button"
                                   size="icon"
                                   variant="ghost"
                                   className="h-7 w-7 rounded-full text-destructive hover:text-destructive"
-                                  aria-label="Delete message"
-                                  title="Delete message"
+                                  aria-label={
+                                    mine
+                                      ? "Delete message"
+                                      : "Delete message as admin"
+                                  }
+                                  title={
+                                    mine
+                                      ? "Delete message"
+                                      : "Delete message as admin"
+                                  }
                                   onClick={() => setDeletingId(item.id)}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />

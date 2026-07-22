@@ -10,8 +10,16 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+// `pg` currently treats these legacy modes as verify-full and warns on stderr.
+// Normalize the URL explicitly so Vercel does not report successful requests as
+// runtime errors and the stronger certificate verification remains unchanged.
+const connectionString = process.env.DATABASE_URL.replace(
+  /([?&])sslmode=(prefer|require|verify-ca)(?=&|$)/i,
+  "$1sslmode=verify-full",
+);
+
 export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString,
   max: process.env.VERCEL ? 3 : 10,
   idleTimeoutMillis: 10_000,
   connectionTimeoutMillis: 10_000,

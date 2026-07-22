@@ -4,7 +4,7 @@
 
 BettorStats is an all-in-one sportsbook journal, mock betting simulator, and social community. It replaces manual paper tracking with private account data, consistent performance analytics, shareable picks, and conversations built around the bets themselves.
 
-**Current version:** `v1.5.0`
+**Current version:** `v1.5.1`
 
 ## What is in v1.5
 
@@ -17,6 +17,10 @@ BettorStats is an all-in-one sportsbook journal, mock betting simulator, and soc
 - **Messages** - Send direct messages, picks, parlays, and Daily Cards one-to-one.
 
 ## Release history
+
+### v1.5.1 - Group ownership and deployment polish
+
+The maintenance release cleans up misleading Vercel database warnings, standardizes the official administrator as `@admin`, and adds secure owner-only group editing, member removal, and deletion.
 
 ### v1.0.0 - First build
 

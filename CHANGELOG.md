@@ -3,6 +3,19 @@
 All notable BettorStats releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [1.5.1] - 2026-07-22
+
+### Added
+
+- Owner-only group editing with validated names and descriptions.
+- Confirmed member removal and permanent group deletion controls.
+
+### Fixed
+
+- Migrated the official administrator identity from `@andy_admin` to `@admin` while preserving its account data.
+- Normalized PostgreSQL SSL verification so successful Vercel requests no longer appear as runtime errors.
+- Corrected shared modal positioning and mobile width so confirmation forms stay fully visible.
+
 ## [1.5.0] - 2026-07-21
 
 ### Second build - social betting
@@ -41,5 +54,6 @@ The first deployable BettorStats release replaced manual betting records with on
 - Community foundations with groups, group chat, the public War Room, and leaderboard.
 - Admin login and production-ready Vercel routing, API bundling, security headers, and database configuration.
 
+[1.5.1]: https://github.com/xhq-CS/BettorStats-V1/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/xhq-CS/BettorStats-V1/compare/v1.0.0...v1.5.0
 [1.0.0]: https://github.com/xhq-CS/BettorStats-V1/releases/tag/v1.0.0

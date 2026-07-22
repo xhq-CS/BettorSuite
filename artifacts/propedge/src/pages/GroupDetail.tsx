@@ -200,7 +200,10 @@ export default function GroupDetail() {
   if (group.isLoading) return <p>Loading group…</p>;
   if (!group.data) return <p>Group not found.</p>;
   const g = group.data;
-  const owner = g.isOwner || g.creatorId === user?.id;
+  const owner =
+    g.isOwner ||
+    g.creatorId === user?.id ||
+    (g.creatorId == null && g.role === "admin");
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
@@ -244,7 +247,7 @@ export default function GroupDetail() {
                 onClick={() => setShowDeleteGroup(true)}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete
+                Delete Group
               </Button>
             </>
           )}

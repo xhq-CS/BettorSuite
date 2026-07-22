@@ -38,7 +38,16 @@ async function groupById(groupId: number) {
 
 async function ownedGroup(groupId: number, userId: number) {
   const group = await groupById(groupId);
-  return group?.creatorId === userId ? group : undefined;
+  if (!group) return undefined;
+  if (group.creatorId === userId) return group;
+
+  // Groups created before ownership was introduced may not have creator_id.
+  // Their original creator was still recorded as the sole admin member.
+  if (group.creatorId === null) {
+    const member = await membership(groupId, userId);
+    if (member?.role === "admin") return group;
+  }
+  return undefined;
 }
 
 groupsRouter.get("/", async (req, res) => {
@@ -118,7 +127,9 @@ groupsRouter.get("/:id", async (req, res) => {
     .innerJoin(usersTable, eq(groupMembersTable.userId, usersTable.id))
     .where(eq(groupMembersTable.groupId, groupId));
   const mine = members.find((member) => member.userId === userId);
-  const isOwner = group.creatorId === userId;
+  const isOwner =
+    group.creatorId === userId ||
+    (group.creatorId === null && mine?.role === "admin");
   const invites = isOwner
     ? await db
         .select({
@@ -410,7 +421,7 @@ groupsRouter.delete("/:id/members/:userId", async (req, res) => {
     return void res
       .status(403)
       .json({ error: "Only the group owner can remove members" });
-  if (removeId === group.creatorId)
+  if (removeId === actorId || removeId === group.creatorId)
     return void res
       .status(400)
       .json({ error: "The group owner cannot be removed" });

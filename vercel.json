@@ -3,7 +3,7 @@
   "framework": "vite",
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm vercel-build",
-  "outputDirectory": "artifacts/propedge/dist/public",
+  "outputDirectory": "artifacts/bettorsuite/dist/public",
   "functions": {
     "api/index.mjs": { "maxDuration": 300 }
   },

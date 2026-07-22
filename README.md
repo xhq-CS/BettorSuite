@@ -1,10 +1,10 @@
-# BettorStats
+# BettorSuite
 
 > Track the action. Test the angle. Share the edge.
 
-BettorStats is an all-in-one sportsbook journal, mock betting simulator, and social community. It replaces manual paper tracking with private account data, consistent performance analytics, shareable picks, and conversations built around the bets themselves.
+BettorSuite is an all-in-one sportsbook journal, mock betting workspace, and social community. It replaces manual paper tracking with private account data, consistent performance analytics, shareable picks, and conversations built around the bets themselves.
 
-**Current version:** `v2.1.1`
+**Current version:** `v2.2.0`
 
 ## What is in v2
 
@@ -18,6 +18,10 @@ BettorStats is an all-in-one sportsbook journal, mock betting simulator, and soc
 
 ## Release history
 
+### v2.2.0 - BettorSuite rebrand and observability
+
+This release renames the platform to BettorSuite, preserves the existing BS visual identity, enables Vercel Web Analytics and Speed Insights, and removes unused frontend scaffold components, legacy internal naming, redundant assets, and obsolete placeholders.
+
 ### v2.1.1 - Repository cleanup
 
 This maintenance release removes obsolete internal agent-memory files that documented retired sports-data integrations. Application behavior and user data are unchanged.
@@ -28,7 +32,7 @@ This feature release adds persistent, per-user Direct Message notification mutin
 
 ### v2.0.0 - Community-first platform
 
-This major release removes the legacy live sports-data ingestion surface and focuses BettorStats on user-entered tracking and social betting. It also adds complete group moderation, chat notification controls, leave-group support, invitation visibility in Messages, and unread message badges.
+This major release removes the legacy live sports-data ingestion surface and focuses the platform on user-entered tracking and social betting. It also adds complete group moderation, chat notification controls, leave-group support, invitation visibility in Messages, and unread message badges.
 
 ### v1.5.1 - Group ownership and deployment polish
 
@@ -51,6 +55,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the detailed release notes.
 - Express API with Drizzle ORM and PostgreSQL
 - Zod-generated API validation and types
 - Vercel deployment configuration for the frontend and API
+- Vercel Web Analytics and Speed Insights for privacy-conscious traffic and performance measurement
 
 ## Local development
 
@@ -81,13 +86,13 @@ Copy the required names from [.env.example](.env.example). Never commit real cre
 
 ## Versioning
 
-BettorStats uses semantic versioning:
+BettorSuite uses semantic versioning:
 
 - `MAJOR` for incompatible product or data-contract changes.
 - `MINOR` for backward-compatible features.
 - `PATCH` for backward-compatible fixes and polish.
 
-The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.1.1`.
+The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.2.0`.
 
 ## Privacy
 

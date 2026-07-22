@@ -1,7 +1,29 @@
 # Changelog
 
-All notable BettorStats releases are documented here. The project follows
+All notable BettorSuite releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
+
+## [2.2.0] - 2026-07-22
+
+### Added
+
+- Vercel Web Analytics and Speed Insights instrumentation at the application root.
+- Production-side enablement for both Vercel observability products.
+
+### Changed
+
+- Renamed the product from BettorStats to BettorSuite across the interface, metadata, documentation, and generated API descriptions.
+- Renamed the frontend workspace from the retired `propedge` identifier to `bettorsuite`.
+- Renamed public brand assets while preserving the existing BS mark.
+
+### Removed
+
+- Unused shadcn scaffold components and their now-unneeded frontend dependencies.
+- A redundant full-size logo asset, obsolete placeholder files, and temporary image-generation output.
+
+### Compatibility
+
+- Kept the existing session cookie identifier so signed-in users are not logged out by the rebrand.
 
 ## [2.1.1] - 2026-07-22
 
@@ -104,9 +126,10 @@ The first deployable BettorStats release replaced manual betting records with on
 - Community foundations with groups, group chat, the public War Room, and leaderboard.
 - Admin login and production-ready Vercel routing, API bundling, security headers, and database configuration.
 
-[2.1.1]: https://github.com/xhq-CS/BettorStats-V1/compare/v2.1.0...v2.1.1
-[2.1.0]: https://github.com/xhq-CS/BettorStats-V1/compare/v2.0.0...v2.1.0
-[2.0.0]: https://github.com/xhq-CS/BettorStats-V1/compare/v1.5.1...v2.0.0
-[1.5.1]: https://github.com/xhq-CS/BettorStats-V1/compare/v1.5.0...v1.5.1
-[1.5.0]: https://github.com/xhq-CS/BettorStats-V1/compare/v1.0.0...v1.5.0
-[1.0.0]: https://github.com/xhq-CS/BettorStats-V1/releases/tag/v1.0.0
+[2.2.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.1.1...v2.2.0
+[2.1.1]: https://github.com/xhq-CS/BettorSuite/compare/v2.1.0...v2.1.1
+[2.1.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.0.0...v2.1.0
+[2.0.0]: https://github.com/xhq-CS/BettorSuite/compare/v1.5.1...v2.0.0
+[1.5.1]: https://github.com/xhq-CS/BettorSuite/compare/v1.5.0...v1.5.1
+[1.5.0]: https://github.com/xhq-CS/BettorSuite/compare/v1.0.0...v1.5.0
+[1.0.0]: https://github.com/xhq-CS/BettorSuite/releases/tag/v1.0.0

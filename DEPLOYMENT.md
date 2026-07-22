@@ -30,3 +30,12 @@ Required: `DATABASE_URL`, `APP_ORIGIN`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `AD
 - Registration, login, logout, Book Keeper, Mock Betting, Community, War Room, Groups, and Leaderboard work with the production database
 
 No preview or demo account is included in the application. Create the first administrator with the configured `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` values.
+
+## 5. Observability
+
+Enable Web Analytics and Speed Insights in the Vercel project, then keep the root-level `Analytics` and `SpeedInsights` components mounted in the frontend application. After deployment, verify that these paths return JavaScript successfully:
+
+- `/_vercel/insights/script.js`
+- `/_vercel/speed-insights/script.js`
+
+Traffic analytics and Core Web Vitals begin populating after visitors use the production site.

@@ -1,6 +1,6 @@
 {
   "name": "workspace",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Sportsbook tracking, mock betting, and social betting community.",
   "packageManager": "pnpm@11.15.1",
   "license": "MIT",

@@ -3,6 +3,16 @@
 All notable BettorStats releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [2.1.1] - 2026-07-22
+
+### Removed
+
+- Obsolete `.agents` memory files for the retired odds, stats, and scheduled sports-data integrations.
+
+### Maintenance
+
+- Reduced repository-only metadata without changing application behavior, production data, or public APIs.
+
 ## [2.1.0] - 2026-07-22
 
 ### Added
@@ -94,6 +104,7 @@ The first deployable BettorStats release replaced manual betting records with on
 - Community foundations with groups, group chat, the public War Room, and leaderboard.
 - Admin login and production-ready Vercel routing, API bundling, security headers, and database configuration.
 
+[2.1.1]: https://github.com/xhq-CS/BettorStats-V1/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/xhq-CS/BettorStats-V1/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/xhq-CS/BettorStats-V1/compare/v1.5.1...v2.0.0
 [1.5.1]: https://github.com/xhq-CS/BettorStats-V1/compare/v1.5.0...v1.5.1

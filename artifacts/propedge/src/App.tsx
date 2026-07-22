@@ -6,6 +6,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { lazy, Suspense } from 'react';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 
 const BetTracker = lazy(() => import('@/pages/BetTracker'));
 const Simulator = lazy(() => import('@/pages/Simulator'));
@@ -67,6 +68,7 @@ function App() {
           <ThemedToaster />
         </TooltipProvider>
       </AuthProvider></QueryClientProvider>
+      <SpeedInsights />
     </ThemeProvider>
   );
 }

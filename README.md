@@ -22,13 +22,13 @@ BettorStats is an all-in-one sportsbook journal, mock betting simulator, and soc
 
 The maintenance release cleans up misleading Vercel database warnings, standardizes the official administrator as `@admin`, and adds secure owner-only group editing, member removal, and deletion.
 
-### v1.0.0 - First build
-
-The public foundation introduced secure accounts, private user-scoped data, sportsbook tracking, Mock Betting, groups, the War Room, the leaderboard, administrator access, and a Vercel-ready Express/PostgreSQL deployment.
-
 ### v1.5.0 - Second build
 
 The social betting release added public profiles, follows, direct messages, shared slips, tailing, Daily Cards, expanded parlays, profit boosts, unified history tools, wallet enforcement, and a profitability-first leaderboard.
+
+### v1.0.0 - First build
+
+The public foundation introduced secure accounts, private user-scoped data, sportsbook tracking, Mock Betting, groups, the War Room, the leaderboard, administrator access, and a Vercel-ready Express/PostgreSQL deployment.
 
 See [CHANGELOG.md](CHANGELOG.md) for the detailed release notes.
 

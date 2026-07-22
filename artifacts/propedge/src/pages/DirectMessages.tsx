@@ -57,7 +57,11 @@ export default function DirectMessages() {
   const [showPickDialog, setShowPickDialog] = useState(false);
   const [showCardDialog, setShowCardDialog] = useState(false);
   const [tailBet, setTailBet] = useState<SharedBetSnapshot | null>(null);
-  const [inboxView, setInboxView] = useState<"direct" | "groups">("direct");
+  const [inboxView, setInboxView] = useState<"direct" | "groups">(() =>
+    new URLSearchParams(window.location.search).get("view") === "groups"
+      ? "groups"
+      : "direct",
+  );
 
   const conversations = useQuery({
     queryKey: ["conversations"],

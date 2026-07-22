@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, desc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, ilike, ne, or, sql } from "drizzle-orm";
 import {
   db,
   groupInvitesTable,
@@ -10,6 +10,11 @@ import {
 } from "@workspace/db";
 import type { AuthRequest } from "../middleware/auth";
 import { getDailyCard } from "../lib/dailyCards";
+import {
+  groupPostingStatus,
+  isPlatformAdmin,
+  POSTING_DISABLED_MESSAGE,
+} from "../lib/moderation";
 
 export const groupsRouter = Router();
 const uid = (req: unknown) => (req as AuthRequest).userId;
@@ -39,6 +44,7 @@ async function groupById(groupId: number) {
 async function ownedGroup(groupId: number, userId: number) {
   const group = await groupById(groupId);
   if (!group) return undefined;
+  if (await isPlatformAdmin(userId)) return group;
   if (group.creatorId === userId) return group;
 
   // Group admins have the same moderation controls as the original owner.
@@ -60,7 +66,6 @@ groupsRouter.get("/", async (req, res) => {
       description: groupsTable.description,
       creatorId: groupsTable.creatorId,
       createdAt: groupsTable.createdAt,
-      memberCount: sql<number>`(SELECT count(*) FROM group_members WHERE group_id = ${groupsTable.id})::int`,
     })
     .from(groupsTable)
     .where(
@@ -75,12 +80,37 @@ groupsRouter.get("/", async (req, res) => {
     .limit(50);
   const result = await Promise.all(
     rows.map(async (group) => {
-      const member = await membership(group.id, userId);
+      const [member, [memberCountRow]] = await Promise.all([
+        membership(group.id, userId),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(groupMembersTable)
+          .where(eq(groupMembersTable.groupId, group.id)),
+      ]);
+      const [unread] =
+        member && !member.notificationsMuted
+          ? await db
+              .select({ count: sql<number>`count(*)::int` })
+              .from(groupMessagesTable)
+              .where(
+                and(
+                  eq(groupMessagesTable.groupId, group.id),
+                  ne(groupMessagesTable.senderId, userId),
+                  gt(
+                    groupMessagesTable.createdAt,
+                    member.lastReadAt ?? member.joinedAt,
+                  ),
+                ),
+              )
+          : [];
       return {
         ...group,
         createdAt: group.createdAt.toISOString(),
+        memberCount: memberCountRow?.count ?? 0,
         isMember: !!member,
         role: member?.role ?? null,
+        notificationsMuted: Boolean(member?.notificationsMuted),
+        unreadCount: unread?.count ?? 0,
       };
     }),
   );
@@ -98,12 +128,14 @@ groupsRouter.post("/", async (req, res) => {
     .returning();
   await db
     .insert(groupMembersTable)
-    .values({ groupId: group.id, userId, role: "admin" });
+    .values({ groupId: group.id, userId, role: "admin", lastReadAt: sql`now()` });
   res.status(201).json({
     ...group,
     memberCount: 1,
     isMember: true,
     role: "admin",
+    notificationsMuted: false,
+    unreadCount: 0,
     createdAt: group.createdAt.toISOString(),
   });
 });
@@ -117,7 +149,6 @@ groupsRouter.get("/invites/pending", async (req, res) => {
       groupDescription: groupsTable.description,
       invitedBy: groupInvitesTable.invitedBy,
       createdAt: groupInvitesTable.createdAt,
-      memberCount: sql<number>`(SELECT count(*) FROM group_members WHERE group_id = ${groupsTable.id})::int`,
     })
     .from(groupInvitesTable)
     .innerJoin(groupsTable, eq(groupInvitesTable.groupId, groupsTable.id))
@@ -132,13 +163,20 @@ groupsRouter.get("/invites/pending", async (req, res) => {
 
   const result = await Promise.all(
     rows.map(async (invite) => {
-      const [inviter] = await db
-        .select({ username: usersTable.username })
-        .from(usersTable)
-        .where(eq(usersTable.id, invite.invitedBy));
+      const [[inviter], [memberCountRow]] = await Promise.all([
+        db
+          .select({ username: usersTable.username })
+          .from(usersTable)
+          .where(eq(usersTable.id, invite.invitedBy)),
+        db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(groupMembersTable)
+          .where(eq(groupMembersTable.groupId, invite.groupId)),
+      ]);
       return {
         ...invite,
         invitedByUsername: inviter?.username ?? "bettor",
+        memberCount: memberCountRow?.count ?? 0,
         createdAt: invite.createdAt.toISOString(),
       };
     }),
@@ -180,14 +218,19 @@ groupsRouter.get("/:id", async (req, res) => {
       userId: groupMembersTable.userId,
       username: usersTable.username,
       role: groupMembersTable.role,
+      muted: groupMembersTable.muted,
+      mutedAt: groupMembersTable.mutedAt,
       joinedAt: groupMembersTable.joinedAt,
     })
     .from(groupMembersTable)
     .innerJoin(usersTable, eq(groupMembersTable.userId, usersTable.id))
     .where(eq(groupMembersTable.groupId, groupId));
   const mine = members.find((member) => member.userId === userId);
+  const viewerMembership = await membership(groupId, userId);
+  const platformAdmin = await isPlatformAdmin(userId);
   const isOwner = group.creatorId === userId || mine?.role === "admin";
-  const invites = isOwner
+  const canManage = isOwner || platformAdmin;
+  const invites = canManage
     ? await db
         .select({
           id: groupInvitesTable.id,
@@ -208,9 +251,15 @@ groupsRouter.get("/:id", async (req, res) => {
     memberCount: members.length,
     isMember: Boolean(mine),
     isOwner,
+    canManage,
+    isPlatformAdmin: platformAdmin,
+    postingMuted: platformAdmin ? false : Boolean(mine?.muted),
+    notificationsMuted: Boolean(viewerMembership?.notificationsMuted),
     role: mine?.role ?? null,
     members: members.map((member) => ({
       ...member,
+      muted: canManage ? member.muted : false,
+      mutedAt: canManage ? member.mutedAt : null,
       joinedAt: member.joinedAt.toISOString(),
     })),
     invites,
@@ -280,7 +329,7 @@ groupsRouter.post("/:id/join", async (req, res) => {
   if (existing) return res.json({ isMember: true });
   await db
     .insert(groupMembersTable)
-    .values({ groupId, userId, role: "member" });
+    .values({ groupId, userId, role: "member", lastReadAt: sql`now()` });
   await db
     .update(groupInvitesTable)
     .set({ status: "accepted" })
@@ -293,10 +342,53 @@ groupsRouter.post("/:id/join", async (req, res) => {
     );
   return res.json({ isMember: true });
 });
+groupsRouter.patch("/:id/notifications", async (req, res) => {
+  const groupId = Number(req.params.id);
+  const userId = uid(req);
+  const notificationsMuted = req.body.muted === true;
+  const member = await membership(groupId, userId);
+  if (!member)
+    return void res.status(403).json({ error: "Join this group first" });
+  await db
+    .update(groupMembersTable)
+    .set({ notificationsMuted, lastReadAt: sql`now()` })
+    .where(eq(groupMembersTable.id, member.id));
+  return res.json({ notificationsMuted });
+});
+groupsRouter.post("/:id/leave", async (req, res) => {
+  const groupId = Number(req.params.id);
+  const userId = uid(req);
+  const group = await groupById(groupId);
+  const member = await membership(groupId, userId);
+  if (!group || !member)
+    return void res.status(404).json({ error: "Group membership not found" });
+  if (
+    group.creatorId === userId ||
+    (group.creatorId == null && member.role === "admin")
+  )
+    return void res
+      .status(400)
+      .json({ error: "Group owners must delete the group instead of leaving" });
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(groupMembersTable)
+      .where(eq(groupMembersTable.id, member.id));
+    await tx
+      .delete(groupInvitesTable)
+      .where(
+        and(
+          eq(groupInvitesTable.groupId, groupId),
+          eq(groupInvitesTable.userId, userId),
+        ),
+      );
+  });
+  return res.status(204).send();
+});
 groupsRouter.get("/:id/messages", async (req, res) => {
   const groupId = Number(req.params.id),
     userId = uid(req);
-  if (!(await requireMember(groupId, userId)))
+  const member = await requireMember(groupId, userId);
+  if (!member)
     return void res
       .status(403)
       .json({ error: "Join this group to view messages" });
@@ -316,6 +408,10 @@ groupsRouter.get("/:id/messages", async (req, res) => {
     .where(eq(groupMessagesTable.groupId, groupId))
     .orderBy(groupMessagesTable.createdAt)
     .limit(200);
+  await db
+    .update(groupMembersTable)
+    .set({ lastReadAt: sql`now()` })
+    .where(eq(groupMembersTable.id, member.id));
   res.json(
     await Promise.all(
       rows.map(async (m) => ({
@@ -332,10 +428,15 @@ groupsRouter.post("/:id/messages", async (req, res) => {
   const groupId = Number(req.params.id),
     userId = uid(req),
     content = String(req.body.content ?? "").trim();
-  if (!(await requireMember(groupId, userId)))
+  const posting = await groupPostingStatus(groupId, userId);
+  if (!posting.isMember)
     return void res
       .status(403)
       .json({ error: "Join this group to send messages" });
+  if (posting.muted)
+    return void res
+      .status(403)
+      .json({ error: POSTING_DISABLED_MESSAGE });
   if (!content || content.length > 2000)
     return void res
       .status(400)
@@ -370,10 +471,10 @@ groupsRouter.patch("/:id/messages/:messageId", async (req, res) => {
     );
   if (!existing)
     return void res.status(404).json({ error: "Message not found" });
-  if (existing.senderId !== userId)
+  if (existing.senderId !== userId && !(await isPlatformAdmin(userId)))
     return void res
       .status(403)
-      .json({ error: "You can only edit your own message" });
+      .json({ error: "Only the sender or platform admin can edit this message" });
   const [message] = await db
     .update(groupMessagesTable)
     .set({ content, editedAt: new Date() })
@@ -416,22 +517,6 @@ groupsRouter.delete("/:id/messages/:messageId", async (req, res) => {
     .where(eq(groupMessagesTable.id, messageId));
   return res.status(204).send();
 });
-groupsRouter.post("/:id/members", async (req, res) => {
-  const groupId = Number(req.params.id),
-    userId = uid(req),
-    newUserId = Number(req.body.userId);
-  if (!(await ownedGroup(groupId, userId)))
-    return void res
-      .status(403)
-      .json({ error: "Only the group owner can add members" });
-  if (!Number.isInteger(newUserId))
-    return void res.status(400).json({ error: "Valid user is required" });
-  if (!(await membership(groupId, newUserId)))
-    await db
-      .insert(groupMembersTable)
-      .values({ groupId, userId: newUserId, role: "member" });
-  res.status(201).json({ added: true });
-});
 groupsRouter.post("/:id/invite", async (req, res) => {
   const groupId = Number(req.params.id),
     userId = uid(req),
@@ -469,6 +554,36 @@ groupsRouter.post("/:id/invite", async (req, res) => {
     invited: true,
     message: `@${target.username} was invited to ${group.name}`,
   });
+});
+groupsRouter.patch("/:id/members/:userId/mute", async (req, res) => {
+  const groupId = Number(req.params.id);
+  const actorId = uid(req);
+  const targetId = Number(req.params.userId);
+  const muted = req.body.muted === true;
+  const group = await ownedGroup(groupId, actorId);
+  if (!group)
+    return void res
+      .status(403)
+      .json({ error: "Only the group owner or platform admin can mute members" });
+  const platformAdmin = await isPlatformAdmin(actorId);
+  if (!platformAdmin && (targetId === actorId || targetId === group.creatorId))
+    return void res.status(400).json({ error: "The group owner cannot be muted" });
+  const target = await membership(groupId, targetId);
+  if (!target) return void res.status(404).json({ error: "Member not found" });
+  await db
+    .update(groupMembersTable)
+    .set({
+      muted,
+      mutedAt: muted ? new Date() : null,
+      mutedBy: muted ? actorId : null,
+    })
+    .where(
+      and(
+        eq(groupMembersTable.groupId, groupId),
+        eq(groupMembersTable.userId, targetId),
+      ),
+    );
+  return res.json({ muted });
 });
 groupsRouter.delete("/:id/members/:userId", async (req, res) => {
   const groupId = Number(req.params.id),

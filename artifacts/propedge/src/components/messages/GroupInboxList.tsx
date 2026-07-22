@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
 import {
   ArrowUpRight,
+  BellOff,
   Check,
   MailPlus,
   MessagesSquare,
@@ -19,6 +20,8 @@ interface MessageGroup {
   memberCount: number;
   isMember: boolean;
   role: string | null;
+  notificationsMuted: boolean;
+  unreadCount: number;
 }
 
 interface PendingGroupInvite {
@@ -36,6 +39,7 @@ export function GroupInboxList() {
   const groups = useQuery({
     queryKey: ["groups"],
     queryFn: () => api<MessageGroup[]>("/groups"),
+    refetchInterval: 4000,
   });
   const invites = useQuery({
     queryKey: ["group-invites"],
@@ -169,7 +173,7 @@ export function GroupInboxList() {
             </div>
           )}
           {joinedGroups.map((group) => (
-            <Link key={group.id} href={`/groups/${group.id}`}>
+            <Link key={group.id} href={`/groups/${group.id}?from=messages`}>
               <div className="group flex cursor-pointer items-center gap-3 rounded-xl p-3 transition-colors hover:bg-blue-50">
                 <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600">
                   <MessagesSquare className="h-5 w-5" />
@@ -182,6 +186,17 @@ export function GroupInboxList() {
                     {group.role === "admin" && (
                       <span className="rounded-full bg-amber-50 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-amber-700">
                         Admin
+                      </span>
+                    )}
+                    {group.notificationsMuted && (
+                      <BellOff
+                        className="h-3.5 w-3.5 shrink-0 text-slate-400"
+                        aria-label="Group notifications muted"
+                      />
+                    )}
+                    {group.unreadCount > 0 && !group.notificationsMuted && (
+                      <span className="ml-auto rounded-full bg-blue-600 px-1.5 py-0.5 font-mono text-[9px] font-bold text-white">
+                        {group.unreadCount > 99 ? "99+" : group.unreadCount}
                       </span>
                     )}
                   </div>

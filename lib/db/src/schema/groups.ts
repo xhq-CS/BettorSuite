@@ -1,4 +1,5 @@
 import {
+  boolean,
   pgTable,
   serial,
   text,
@@ -29,6 +30,11 @@ export const groupMembersTable = pgTable("group_members", {
     .references(() => usersTable.id)
     .notNull(),
   role: text("role").default("member").notNull(), // 'admin' | 'member'
+  muted: boolean("muted").default(false).notNull(),
+  mutedAt: timestamp("muted_at"),
+  mutedBy: integer("muted_by"),
+  notificationsMuted: boolean("notifications_muted").default(false).notNull(),
+  lastReadAt: timestamp("last_read_at"),
   joinedAt: timestamp("joined_at").defaultNow().notNull(),
 });
 

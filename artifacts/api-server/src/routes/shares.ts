@@ -4,7 +4,6 @@ import {
   betsTable,
   conversationParticipantsTable,
   db,
-  groupMembersTable,
   groupMessagesTable,
   postsTable,
   messagesTable,
@@ -13,6 +12,11 @@ import {
 } from "@workspace/db";
 import type { AuthRequest } from "../middleware/auth";
 import { mockBetSnapshot, trackerBetSnapshot } from "../lib/betSnapshots";
+import {
+  groupPostingStatus,
+  POSTING_DISABLED_MESSAGE,
+  warRoomPostingStatus,
+} from "../lib/moderation";
 
 export const sharesRouter = Router();
 
@@ -76,6 +80,10 @@ sharesRouter.post("/bet", async (req, res) => {
 
   const content = note || defaultShareNote(snapshot.status);
   if (destination === "war-room") {
+    if ((await warRoomPostingStatus(userId)).muted)
+      return void res
+        .status(403)
+        .json({ error: POSTING_DISABLED_MESSAGE });
     const [post] = await db
       .insert(postsTable)
       .values({ userId, content, betShare: snapshot })
@@ -114,20 +122,16 @@ sharesRouter.post("/bet", async (req, res) => {
   if (!groupId) {
     return void res.status(400).json({ error: "Choose a group" });
   }
-  const [membership] = await db
-    .select({ id: groupMembersTable.id })
-    .from(groupMembersTable)
-    .where(
-      and(
-        eq(groupMembersTable.groupId, groupId),
-        eq(groupMembersTable.userId, userId),
-      ),
-    );
-  if (!membership) {
+  const posting = await groupPostingStatus(groupId, userId);
+  if (!posting.isMember) {
     return void res
       .status(403)
       .json({ error: "Join this group before sharing" });
   }
+  if (posting.muted)
+    return void res
+      .status(403)
+      .json({ error: POSTING_DISABLED_MESSAGE });
 
   const [message] = await db
     .insert(groupMessagesTable)

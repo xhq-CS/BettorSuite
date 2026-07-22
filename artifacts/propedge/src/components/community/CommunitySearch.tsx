@@ -177,7 +177,7 @@ export function CommunitySearch({
                   <button
                     key={group.id}
                     type="button"
-                    onClick={() => navigate(`/groups/${group.id}`)}
+                    onClick={() => navigate(`/groups/${group.id}?from=community`)}
                     className="flex w-full items-center gap-3 rounded-xl border bg-white p-2.5 text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">

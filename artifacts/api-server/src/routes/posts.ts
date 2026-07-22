@@ -11,6 +11,11 @@ import {
 } from "@workspace/api-zod";
 import type { AuthRequest } from "../middleware/auth";
 import { getDailyCard } from "../lib/dailyCards";
+import {
+  isPlatformAdmin,
+  POSTING_DISABLED_MESSAGE,
+  warRoomPostingStatus,
+} from "../lib/moderation";
 
 export const postsRouter = Router();
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
@@ -27,6 +32,7 @@ postsRouter.get("/", async (req, res) => {
       userId: postsTable.userId,
       username: usersTable.username,
       avatarUrl: usersTable.avatarUrl,
+      authorMuted: usersTable.warRoomMuted,
       content: postsTable.content,
       sport: postsTable.sport,
       playerTag: postsTable.playerTag,
@@ -73,12 +79,15 @@ postsRouter.get("/", async (req, res) => {
   const likeCountMap = new Map(likeCounts.map((l) => [l.postId, l.count]));
   const likedSet = new Set(userLikes.map((l) => l.postId));
 
+  const viewerPosting = await warRoomPostingStatus(currentUserId(req));
   res.json({
+    postingMuted: viewerPosting.muted,
     posts: await Promise.all(items.map(async (p) => ({
       id: p.id,
       userId: p.userId,
       username: p.username ?? "Unknown",
       avatarUrl: p.avatarUrl ?? null,
+      authorMuted: viewerPosting.isAdmin ? Boolean(p.authorMuted) : false,
       content: p.content,
       likeCount: likeCountMap.get(p.id) ?? 0,
       liked: likedSet.has(p.id),
@@ -96,6 +105,11 @@ postsRouter.get("/", async (req, res) => {
 
 // POST /posts
 postsRouter.post("/", async (req, res) => {
+  const posting = await warRoomPostingStatus(currentUserId(req));
+  if (posting.muted)
+    return void res
+      .status(403)
+      .json({ error: POSTING_DISABLED_MESSAGE });
   const body = CreatePostBody.parse(req.body);
   const [post] = await db
     .insert(postsTable)
@@ -127,6 +141,32 @@ postsRouter.post("/", async (req, res) => {
     createdAt: post.createdAt.toISOString(),
     editedAt: post.editedAt?.toISOString() ?? null,
   });
+});
+
+postsRouter.patch("/users/:userId/mute", async (req, res) => {
+  const actorId = currentUserId(req);
+  if (!(await isPlatformAdmin(actorId)))
+    return void res.status(403).json({ error: "Platform admin access required" });
+  const targetId = Number(req.params.userId);
+  const muted = req.body.muted === true;
+  if (!Number.isInteger(targetId) || targetId <= 0)
+    return void res.status(400).json({ error: "Invalid user" });
+  const [target] = await db
+    .select({ role: usersTable.role })
+    .from(usersTable)
+    .where(eq(usersTable.id, targetId));
+  if (!target) return void res.status(404).json({ error: "User not found" });
+  if (target.role === "admin")
+    return void res.status(400).json({ error: "The platform admin cannot be muted" });
+  await db
+    .update(usersTable)
+    .set({
+      warRoomMuted: muted,
+      warRoomMutedAt: muted ? new Date() : null,
+      warRoomMutedBy: muted ? actorId : null,
+    })
+    .where(eq(usersTable.id, targetId));
+  return res.json({ muted });
 });
 
 // GET /posts/:id
@@ -201,10 +241,13 @@ postsRouter.patch("/:id", async (req, res) => {
     .from(postsTable)
     .where(eq(postsTable.id, id));
   if (!existing) return void res.status(404).json({ error: "Post not found" });
-  if (existing.userId !== currentUserId(req))
+  if (
+    existing.userId !== currentUserId(req) &&
+    !(await isPlatformAdmin(currentUserId(req)))
+  )
     return void res
       .status(403)
-      .json({ error: "You can only edit your own message" });
+      .json({ error: "Only the author or platform admin can edit this message" });
 
   const [post] = await db
     .update(postsTable)
@@ -226,10 +269,13 @@ postsRouter.delete("/:id", async (req, res) => {
     .from(postsTable)
     .where(eq(postsTable.id, id));
   if (!existing) return void res.status(404).json({ error: "Post not found" });
-  if (existing.userId !== currentUserId(req))
+  if (
+    existing.userId !== currentUserId(req) &&
+    !(await isPlatformAdmin(currentUserId(req)))
+  )
     return void res
       .status(403)
-      .json({ error: "You can only delete your own message" });
+      .json({ error: "Only the author or platform admin can delete this message" });
   await db.delete(postLikesTable).where(eq(postLikesTable.postId, id));
   await db.delete(postsTable).where(eq(postsTable.id, id));
   res.status(204).send();

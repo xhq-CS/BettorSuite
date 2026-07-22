@@ -3,13 +3,18 @@ import { useLocation, useParams } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
+  Bell,
+  BellOff,
   Check,
   Layers3,
+  LogOut,
   Pencil,
   Send,
+  ShieldCheck,
   Trash2,
   UserMinus,
-  UserPlus,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -37,7 +42,13 @@ import { DailyCardCard } from "@/components/daily-cards/DailyCardCard";
 import { DailyCardDialog } from "@/components/daily-cards/DailyCardDialog";
 import type { DailyCard } from "@/lib/social-types";
 
-type Member = { userId: number; username: string; role: string };
+type Member = {
+  userId: number;
+  username: string;
+  role: string;
+  muted: boolean;
+  mutedAt: string | null;
+};
 type Group = {
   id: number;
   name: string;
@@ -45,6 +56,10 @@ type Group = {
   creatorId: number | null;
   isMember: boolean;
   isOwner: boolean;
+  canManage: boolean;
+  isPlatformAdmin: boolean;
+  postingMuted: boolean;
+  notificationsMuted: boolean;
   role: string | null;
   members: Member[];
   invites: { id: number; userId: number; status: string }[];
@@ -66,6 +81,9 @@ export default function GroupDetail() {
   const groupId = Number(id);
   const { user } = useAuth();
   const [, nav] = useLocation();
+  const source = new URLSearchParams(window.location.search).get("from");
+  const returnTo = source === "messages" ? "/messages?view=groups" : "/community";
+  const returnLabel = source === "messages" ? "Back to Messages" : "Back to Community";
   const qc = useQueryClient();
   const [message, setMessage] = useState("");
   const [search, setSearch] = useState("");
@@ -76,6 +94,7 @@ export default function GroupDetail() {
   const [showDailyCard, setShowDailyCard] = useState(false);
   const [showEditGroup, setShowEditGroup] = useState(false);
   const [showDeleteGroup, setShowDeleteGroup] = useState(false);
+  const [showLeaveGroup, setShowLeaveGroup] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
@@ -83,6 +102,7 @@ export default function GroupDetail() {
   const group = useQuery({
     queryKey: ["group", groupId],
     queryFn: () => api<Group>(`/groups/${groupId}`),
+    refetchInterval: 2000,
   });
   const messages = useQuery({
     queryKey: ["group-messages", groupId],
@@ -118,6 +138,14 @@ export default function GroupDetail() {
     onSuccess: () => {
       setMessage("");
       refresh();
+    },
+    onError: (error) => {
+      group.refetch();
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "You do not have permission to send messages in this channel.",
+      );
     },
   });
   const edit = useMutation({
@@ -172,11 +200,42 @@ export default function GroupDetail() {
       qc.removeQueries({ queryKey: ["group", groupId] });
       qc.invalidateQueries({ queryKey: ["groups"] });
       toast.success("Group deleted");
-      nav("/community");
+      nav(returnTo);
     },
     onError: (error) =>
       toast.error(
         error instanceof Error ? error.message : "Could not delete group",
+      ),
+  });
+  const toggleNotifications = useMutation({
+    mutationFn: (muted: boolean) =>
+      api(`/groups/${groupId}/notifications`, {
+        method: "PATCH",
+        body: JSON.stringify({ muted }),
+      }),
+    onSuccess: (_, muted) => {
+      refresh();
+      qc.invalidateQueries({ queryKey: ["groups"] });
+      toast.success(muted ? "Group chat muted" : "Group chat unmuted");
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error ? error.message : "Could not update notifications",
+      ),
+  });
+  const leaveGroup = useMutation({
+    mutationFn: () => api(`/groups/${groupId}/leave`, { method: "POST" }),
+    onSuccess: () => {
+      setShowLeaveGroup(false);
+      qc.removeQueries({ queryKey: ["group", groupId] });
+      qc.removeQueries({ queryKey: ["group-messages", groupId] });
+      qc.invalidateQueries({ queryKey: ["groups"] });
+      toast.success("You left the group");
+      nav(returnTo);
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error ? error.message : "Could not leave group",
       ),
   });
   const removeMember = useMutation({
@@ -193,6 +252,19 @@ export default function GroupDetail() {
         error instanceof Error ? error.message : "Could not remove member",
       ),
   });
+  const muteMember = useMutation({
+    mutationFn: ({ member, muted }: { member: Member; muted: boolean }) =>
+      api(`/groups/${groupId}/members/${member.userId}/mute`, {
+        method: "PATCH",
+        body: JSON.stringify({ muted }),
+      }),
+    onSuccess: (_, { member, muted }) => {
+      refresh();
+      toast.success(`@${member.username} ${muted ? "muted" : "unmuted"}`);
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Could not update member"),
+  });
   const submit = () => {
     if (message.trim() && !send.isPending) send.mutate();
   };
@@ -204,12 +276,13 @@ export default function GroupDetail() {
     g.isOwner ||
     g.creatorId === user?.id ||
     (g.creatorId == null && g.role === "admin");
+  const manager = g.canManage || owner;
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
-      <Button variant="ghost" onClick={() => nav("/groups")}>
+      <Button variant="ghost" onClick={() => nav(returnTo)}>
         <ArrowLeft className="w-4 h-4 mr-2" />
-        All groups
+        {returnLabel}
       </Button>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
@@ -220,13 +293,18 @@ export default function GroupDetail() {
                 Owner
               </span>
             )}
+            {g.isPlatformAdmin && !owner && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-700">
+                <ShieldCheck className="h-3 w-3" /> Platform Admin
+              </span>
+            )}
           </div>
           <p className="mt-1 text-muted-foreground">
             {g.description || "No description yet."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {owner && (
+          {manager && (
             <>
               <Button
                 type="button"
@@ -255,7 +333,36 @@ export default function GroupDetail() {
             <Button
               type="button"
               variant="outline"
+              disabled={toggleNotifications.isPending}
+              onClick={() =>
+                toggleNotifications.mutate(!g.notificationsMuted)
+              }
+            >
+              {g.notificationsMuted ? (
+                <Bell className="mr-2 h-4 w-4" />
+              ) : (
+                <BellOff className="mr-2 h-4 w-4" />
+              )}
+              {g.notificationsMuted ? "Unmute Chat" : "Mute Chat"}
+            </Button>
+          )}
+          {g.isMember && !owner && (
+            <Button
+              type="button"
+              variant="outline"
+              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+              onClick={() => setShowLeaveGroup(true)}
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              Leave Group
+            </Button>
+          )}
+          {g.isMember && (
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => setShowDailyCard(true)}
+              disabled={g.postingMuted}
             >
               <Layers3 className="mr-2 h-4 w-4 text-blue-600" />
               Post Daily Card
@@ -284,7 +391,8 @@ export default function GroupDetail() {
               <div className="flex min-h-[320px] max-h-[430px] flex-1 flex-col gap-3 overflow-y-auto px-2 py-3">
                 {messages.data?.map((item) => {
                   const mine = item.senderId === user?.id;
-                  const canDelete = mine || owner;
+                  const canEdit = mine || g.isPlatformAdmin;
+                  const canDelete = mine || manager;
                   const isEditing = editingId === item.id;
                   const hasAttachment = Boolean(
                     item.betShare || item.dailyCard,
@@ -415,7 +523,7 @@ export default function GroupDetail() {
                               </div>
                             ) : (
                               <div className="mb-0.5 flex gap-0.5 opacity-70 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                                {mine && (
+                                {canEdit && (
                                   <Button
                                     type="button"
                                     size="icon"
@@ -472,6 +580,11 @@ export default function GroupDetail() {
                   </p>
                 )}
               </div>
+              {g.postingMuted && (
+                <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                  You do not have permission to send messages in this channel.
+                </div>
+              )}
               <form
                 onSubmit={(event) => {
                   event.preventDefault();
@@ -487,6 +600,7 @@ export default function GroupDetail() {
                   aria-label="Post daily card"
                   title="Post daily card"
                   onClick={() => setShowDailyCard(true)}
+                  disabled={g.postingMuted}
                 >
                   <Layers3 className="h-4 w-4" />
                 </Button>
@@ -507,13 +621,14 @@ export default function GroupDetail() {
                   maxLength={2000}
                   rows={2}
                   className="max-h-40 min-h-[46px] resize-y rounded-2xl border-slate-300 bg-white px-4 py-3"
+                  disabled={g.postingMuted}
                 />
                 <Button
                   type="submit"
                   size="icon"
                   className="h-10 w-10 shrink-0 rounded-full bg-[#0A84FF] hover:bg-[#0077ED]"
                   aria-label="Send message"
-                  disabled={!message.trim() || send.isPending}
+                  disabled={g.postingMuted || !message.trim() || send.isPending}
                 >
                   <Send className="w-4 h-4" />
                 </Button>
@@ -521,6 +636,7 @@ export default function GroupDetail() {
               <MessageShortcutHint />
             </CardContent>
           </Card>
+          <div className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Members</CardTitle>
@@ -543,26 +659,61 @@ export default function GroupDetail() {
                       </small>
                     )}
                   </button>
-                  {owner && member.userId !== g.creatorId && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 shrink-0 text-red-500 hover:bg-red-50 hover:text-red-600"
-                      aria-label={`Remove @${member.username}`}
-                      title={`Remove @${member.username}`}
-                      onClick={() => setMemberToRemove(member)}
-                    >
-                      <UserMinus className="h-4 w-4" />
-                    </Button>
+                  {manager && member.muted && (
+                    <small className="rounded-full bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-700">
+                      Muted
+                    </small>
+                  )}
+                  {manager && member.userId !== user?.id && (
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+                        aria-label={`${member.muted ? "Unmute" : "Mute"} @${member.username}`}
+                        title={`${member.muted ? "Unmute" : "Mute"} @${member.username}`}
+                        disabled={muteMember.isPending}
+                        onClick={() =>
+                          muteMember.mutate({ member, muted: !member.muted })
+                        }
+                      >
+                        {member.muted ? (
+                          <Volume2 className="h-4 w-4" />
+                        ) : (
+                          <VolumeX className="h-4 w-4" />
+                        )}
+                      </Button>
+                      {member.userId !== g.creatorId && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-red-500 hover:bg-red-50 hover:text-red-600"
+                          aria-label={`Remove @${member.username}`}
+                          title={`Remove @${member.username}`}
+                          onClick={() => setMemberToRemove(member)}
+                        >
+                          <UserMinus className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}
-              {owner && (
-                <div className="pt-3 border-t">
+            </CardContent>
+          </Card>
+              {manager && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">Invite Bettors</CardTitle>
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Search and send an invitation. Users join only after accepting it.
+                    </p>
+                  </CardHeader>
+                  <CardContent>
                   <Input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Find username…"
+                    placeholder="Search username…"
                   />
                   <div className="mt-2 space-y-2">
                     {users.data
@@ -607,40 +758,17 @@ export default function GroupDetail() {
                                     )
                                 }
                               >
-                                {invited ? "Invited" : "Invite"}
-                              </Button>
-                              <Button
-                                size="icon"
-                                aria-label={`Add @${found.username}`}
-                                onClick={() =>
-                                  api(`/groups/${groupId}/members`, {
-                                    method: "POST",
-                                    body: JSON.stringify({ userId: found.id }),
-                                  })
-                                    .then(() => {
-                                      refresh();
-                                      toast.success(`@${found.username} added`);
-                                    })
-                                    .catch((error) =>
-                                      toast.error(
-                                        error instanceof Error
-                                          ? error.message
-                                          : "Could not add user",
-                                      ),
-                                    )
-                                }
-                              >
-                                <UserPlus className="w-4 h-4" />
+                                {invited ? "Invited" : "Send Invite"}
                               </Button>
                             </div>
                           </div>
                         );
                       })}
                   </div>
-                </div>
+                  </CardContent>
+                </Card>
               )}
-            </CardContent>
-          </Card>
+          </div>
         </div>
       )}
       <TailBetDialog bet={tailBet} onClose={() => setTailBet(null)} />
@@ -755,6 +883,34 @@ export default function GroupDetail() {
               onClick={() => deleteGroup.mutate()}
             >
               {deleteGroup.isPending ? "Deleting…" : "Delete Group"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={showLeaveGroup} onOpenChange={setShowLeaveGroup}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Leave {g.name}?</DialogTitle>
+            <DialogDescription>
+              This group will disappear from Messages. You can join it again later
+              if the group remains available.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowLeaveGroup(false)}
+            >
+              Stay in Group
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={leaveGroup.isPending}
+              onClick={() => leaveGroup.mutate()}
+            >
+              {leaveGroup.isPending ? "Leaving…" : "Leave Group"}
             </Button>
           </DialogFooter>
         </DialogContent>

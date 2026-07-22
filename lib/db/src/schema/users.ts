@@ -15,6 +15,9 @@ export const usersTable = pgTable("users", {
   favoriteSport: text("favorite_sport"),
   trackerBankroll: numeric("tracker_bankroll").notNull().default("0"),
   trackerWageredResetAt: timestamp("tracker_wagered_reset_at"),
+  warRoomMuted: boolean("war_room_muted").default(false).notNull(),
+  warRoomMutedAt: timestamp("war_room_muted_at"),
+  warRoomMutedBy: integer("war_room_muted_by"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

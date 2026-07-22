@@ -5,7 +5,6 @@ import {
   conversationParticipantsTable,
   dailyCardsTable,
   db,
-  groupMembersTable,
   groupMessagesTable,
   messagesTable,
   postsTable,
@@ -13,6 +12,11 @@ import {
 import type { AuthRequest } from "../middleware/auth";
 import { trackerBetSnapshot } from "../lib/betSnapshots";
 import { getDailyCard } from "../lib/dailyCards";
+import {
+  groupPostingStatus,
+  POSTING_DISABLED_MESSAGE,
+  warRoomPostingStatus,
+} from "../lib/moderation";
 
 export const dailyCardsRouter = Router();
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
@@ -88,6 +92,12 @@ dailyCardsRouter.post("/", async (req, res) => {
     return void res.status(400).json({ error: "Choose 3-12 tracked picks for a daily card" });
   if (!["war-room", "group", "dm"].includes(destination))
     return void res.status(400).json({ error: "Choose where to post this card" });
+  if (destination === "group" && !Number.isInteger(groupId))
+    return void res.status(400).json({ error: "Choose a group" });
+  if (destination === "dm" && !Number.isInteger(conversationId))
+    return void res
+      .status(400)
+      .json({ error: "Choose a direct-message conversation" });
 
   const bets = await db
     .select()
@@ -105,25 +115,26 @@ dailyCardsRouter.post("/", async (req, res) => {
   ];
   const content = note || `${title} · ${picks.length} picks`;
 
+  if (destination === "war-room" && (await warRoomPostingStatus(userId)).muted)
+    return void res
+      .status(403)
+      .json({ error: POSTING_DISABLED_MESSAGE });
+  if (destination === "group") {
+    const posting = await groupPostingStatus(groupId, userId);
+    if (!posting.isMember)
+      return void res
+        .status(403)
+        .json({ error: "Join this group before posting a card" });
+    if (posting.muted)
+      return void res
+        .status(403)
+        .json({ error: POSTING_DISABLED_MESSAGE });
+  }
+
   let cardId: number;
   try {
     cardId = await db.transaction(async (tx) => {
-      if (destination === "group") {
-        if (!Number.isInteger(groupId)) throw new Error("Choose a group");
-        const [member] = await tx
-          .select({ id: groupMembersTable.id })
-          .from(groupMembersTable)
-          .where(
-            and(
-              eq(groupMembersTable.groupId, groupId),
-              eq(groupMembersTable.userId, userId),
-            ),
-          );
-        if (!member) throw new Error("Join this group before posting a card");
-      }
       if (destination === "dm") {
-        if (!Number.isInteger(conversationId))
-          throw new Error("Choose a direct-message conversation");
         const member = await isConversationMember(conversationId, userId);
         if (!member) throw new Error("Conversation not found");
       }

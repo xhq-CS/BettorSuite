@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Layers3, MessageCircle, Pencil, Send, Trash2, X } from "lucide-react";
+import { Check, Layers3, MessageCircle, Pencil, Send, Trash2, Volume2, VolumeX, X } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import Groups from "@/pages/Groups";
@@ -31,12 +32,14 @@ interface Post {
   editedAt: string | null;
   likeCount: number;
   liked: boolean;
+  authorMuted: boolean;
 }
 
 interface Feed {
   posts: Post[];
   hasMore: boolean;
   nextCursor: number | null;
+  postingMuted: boolean;
 }
 
 export default function Community() {
@@ -52,7 +55,7 @@ export default function Community() {
   const feed = useQuery({
     queryKey: ["war-room"],
     queryFn: () => api<Feed>("/posts?limit=50"),
-    refetchInterval: 5000,
+    refetchInterval: 2000,
   });
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ["war-room"] });
@@ -65,6 +68,14 @@ export default function Community() {
     onSuccess: () => {
       setMessage("");
       refresh();
+    },
+    onError: (error) => {
+      refresh();
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "You do not have permission to send messages in this channel.",
+      );
     },
   });
   const edit = useMutation({
@@ -85,6 +96,19 @@ export default function Community() {
       setDeletingId(null);
       refresh();
     },
+  });
+  const muteUser = useMutation({
+    mutationFn: ({ userId, muted }: { userId: number; muted: boolean }) =>
+      api(`/posts/users/${userId}/mute`, {
+        method: "PATCH",
+        body: JSON.stringify({ muted }),
+      }),
+    onSuccess: (_, { muted }) => {
+      refresh();
+      toast.success(`War Room access ${muted ? "muted" : "restored"}`);
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Could not update user"),
   });
   const submit = () => {
     if (message.trim() && !send.isPending) send.mutate();
@@ -120,7 +144,7 @@ export default function Community() {
                 Messages here are visible to the BettorStats community.
               </p>
             </div>
-            <Button type="button" variant="outline" onClick={() => setShowDailyCard(true)}>
+            <Button type="button" variant="outline" onClick={() => setShowDailyCard(true)} disabled={feed.data?.postingMuted}>
               <Layers3 className="mr-2 h-4 w-4 text-blue-600" /> Post Daily Card
             </Button>
           </CardHeader>
@@ -128,6 +152,9 @@ export default function Community() {
             <div className="mb-4 max-h-[32rem] space-y-3 overflow-y-auto pr-1">
               {feed.data?.posts.map((post) => {
                 const mine = post.userId === user?.id;
+                const platformAdmin = user?.role === "admin";
+                const canEdit = mine || platformAdmin;
+                const canDelete = mine || platformAdmin;
                 const isEditing = editingId === post.id;
                 return (
                   <div
@@ -144,7 +171,7 @@ export default function Community() {
                           @{post.username}
                         </span>
                       </Link>
-                      {mine && !isEditing &&
+                      {canDelete && !isEditing &&
                         (deletingId === post.id ? (
                           <div className="flex items-center gap-1">
                             <span className="mr-1 text-[11px] text-muted-foreground">
@@ -187,6 +214,20 @@ export default function Community() {
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
+                            {platformAdmin && !mine && (
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+                                aria-label={`${post.authorMuted ? "Unmute" : "Mute"} @${post.username} in War Room`}
+                                title={`${post.authorMuted ? "Unmute" : "Mute"} @${post.username} in War Room`}
+                                disabled={muteUser.isPending}
+                                onClick={() => muteUser.mutate({ userId: post.userId, muted: !post.authorMuted })}
+                              >
+                                {post.authorMuted ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                              </Button>
+                            )}
                             <Button
                               type="button"
                               size="icon"
@@ -270,6 +311,11 @@ export default function Community() {
                 </div>
               )}
             </div>
+            {feed.data?.postingMuted && (
+              <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800">
+                You do not have permission to send messages in this channel.
+              </div>
+            )}
             <form
               onSubmit={(event) => {
                 event.preventDefault();
@@ -294,13 +340,14 @@ export default function Community() {
                 maxLength={2000}
                 rows={2}
                 className="max-h-40 resize-y"
+                disabled={feed.data?.postingMuted}
               />
               <Button
                 type="submit"
                 size="icon"
                 className="shrink-0"
                 aria-label="Send message"
-                disabled={!message.trim() || send.isPending}
+                disabled={feed.data?.postingMuted || !message.trim() || send.isPending}
               >
                 <Send className="h-4 w-4" />
               </Button>

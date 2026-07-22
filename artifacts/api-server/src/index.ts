@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { ensureAdminAccount } from "./services/adminBootstrap";
+import { ensureModerationSchema } from "./services/moderationSchema";
 
 const rawPort = process.env["PORT"];
 
@@ -24,6 +25,7 @@ app.listen(port, host, async (err) => {
   }
 
   logger.info({ host, port }, "Server listening");
+  await ensureModerationSchema();
   await ensureAdminAccount(logger);
 
 });

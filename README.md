@@ -4,9 +4,9 @@
 
 BettorStats is an all-in-one sportsbook journal, mock betting simulator, and social community. It replaces manual paper tracking with private account data, consistent performance analytics, shareable picks, and conversations built around the bets themselves.
 
-**Current version:** `v1.5.1`
+**Current version:** `v2.0.0`
 
-## What is in v1.5
+## What is in v2
 
 - **Book Keeper** - Log straight bets and parlays, track sportsbook balances, settle results, review calendar activity, filter history, and measure profit in dollars or units.
 - **Mock Betting** - Test the same ideas against a virtual bankroll without risking real money.
@@ -17,6 +17,10 @@ BettorStats is an all-in-one sportsbook journal, mock betting simulator, and soc
 - **Messages** - Send direct messages, picks, parlays, and Daily Cards one-to-one.
 
 ## Release history
+
+### v2.0.0 - Community-first platform
+
+This major release removes the legacy live sports-data ingestion surface and focuses BettorStats on user-entered tracking and social betting. It also adds complete group moderation, chat notification controls, leave-group support, invitation visibility in Messages, and unread message badges.
 
 ### v1.5.1 - Group ownership and deployment polish
 
@@ -75,7 +79,7 @@ BettorStats uses semantic versioning:
 - `MINOR` for backward-compatible features.
 - `PATCH` for backward-compatible fixes and polish.
 
-The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v1.5.0`.
+The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.0.0`.
 
 ## Privacy
 

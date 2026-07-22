@@ -27,6 +27,6 @@ Required: `DATABASE_URL`, `APP_ORIGIN`, `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `AD
 - `/api/healthz` returns `{ "status": "ok" }`
 - `/admin/login` displays the administrator login
 - `/` displays the account login for signed-out visitors
-- Registration, login, logout, Bet Tracker, Mock Betting, Community, War Room, Groups, and Leaderboard work with the production database
+- Registration, login, logout, Book Keeper, Mock Betting, Community, War Room, Groups, and Leaderboard work with the production database
 
 No preview or demo account is included in the application. Create the first administrator with the configured `ADMIN_EMAIL`, `ADMIN_USERNAME`, and `ADMIN_PASSWORD` values.

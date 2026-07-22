@@ -3,6 +3,33 @@
 All notable BettorStats releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [2.0.0] - 2026-07-22
+
+### Added
+
+- Unread Messages navigation badges covering direct messages, group messages, and pending group invitations.
+- Per-user group notification muting and self-service group leaving.
+- Owner and platform-admin group moderation for member removal, posting mutes, message removal, group editing, and group deletion.
+- Hidden moderation state so only owners and administrators can see which members are muted.
+- Context-aware group navigation that returns users to Messages or Community based on where the group was opened.
+
+### Improved
+
+- Unified muted-channel copy and enforced posting permissions on both the client and server.
+- Made group invitation activity visible and actionable inside Messages.
+- Reworked group membership counts and read timestamps for reliable unread state.
+
+### Removed
+
+- Live sports score, news, leader, team, player, and trending-stat API routes.
+- External ESPN sports-data requests and all related player/team/stat route implementations.
+- Player, team, game-stat, odds-cache, player-stat-cache, and scheduled-sync database schema source.
+- Player/team/trending OpenAPI operations, generated client methods, validators, and types.
+
+### Breaking changes
+
+- Removed `/api/players`, `/api/teams`, `/api/stats/trending`, and `/api/livestats` endpoints. BettorStats now treats league and bet details as user-entered tracker metadata and does not ingest external sports data.
+
 ## [1.5.1] - 2026-07-22
 
 ### Added
@@ -53,6 +80,7 @@ The first deployable BettorStats release replaced manual betting records with on
 - Community foundations with groups, group chat, the public War Room, and leaderboard.
 - Admin login and production-ready Vercel routing, API bundling, security headers, and database configuration.
 
+[2.0.0]: https://github.com/xhq-CS/BettorStats-V1/compare/v1.5.1...v2.0.0
 [1.5.1]: https://github.com/xhq-CS/BettorStats-V1/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/xhq-CS/BettorStats-V1/compare/v1.0.0...v1.5.0
 [1.0.0]: https://github.com/xhq-CS/BettorStats-V1/releases/tag/v1.0.0

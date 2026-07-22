@@ -180,7 +180,7 @@ conversationsRouter.get("/:id/messages", async (req, res) => {
     .limit(300);
   await db
     .update(conversationParticipantsTable)
-    .set({ lastReadAt: new Date() })
+    .set({ lastReadAt: sql`now()` })
     .where(
       and(
         eq(conversationParticipantsTable.conversationId, conversationId),

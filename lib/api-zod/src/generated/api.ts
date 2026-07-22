@@ -131,33 +131,82 @@ export const GetBetSummaryResponse = zod.object({
 
 
 /**
+ * @summary Get the Book Keeper wallet and recent ledger activity
+ */
+export const GetTrackerWalletResponse = zod.object({
+  "balance": zod.number(),
+  "initialized": zod.boolean(),
+  "reconciliationsUsed": zod.number(),
+  "reconciliationLimit": zod.number(),
+  "reconciliationResetsAt": zod.string(),
+  "transactions": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.string(),
+  "amount": zod.number(),
+  "balanceAfter": zod.number(),
+  "reason": zod.string().nullish(),
+  "betId": zod.number().nullish(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
+ * @summary Record a deposit, withdrawal, or limited balance reconciliation
+ */
+export const createTrackerWalletTransactionBodyAmountMin = 0.01;
+
+export const createTrackerWalletTransactionBodyBalanceMin = 0;
+
+export const createTrackerWalletTransactionBodyReasonMax = 160;
+
+
+
+export const CreateTrackerWalletTransactionBody = zod.object({
+  "type": zod.enum(['deposit', 'withdrawal', 'reconciliation']),
+  "amount": zod.number().min(createTrackerWalletTransactionBodyAmountMin).optional(),
+  "balance": zod.number().min(createTrackerWalletTransactionBodyBalanceMin).optional(),
+  "reason": zod.string().max(createTrackerWalletTransactionBodyReasonMax).optional()
+})
+
+export const CreateTrackerWalletTransactionResponse = zod.object({
+  "balance": zod.number(),
+  "initialized": zod.boolean(),
+  "reconciliationsUsed": zod.number(),
+  "reconciliationLimit": zod.number(),
+  "reconciliationResetsAt": zod.string(),
+  "transactions": zod.array(zod.object({
+  "id": zod.number(),
+  "type": zod.string(),
+  "amount": zod.number(),
+  "balanceAfter": zod.number(),
+  "reason": zod.string().nullish(),
+  "betId": zod.number().nullish(),
+  "createdAt": zod.string()
+}))
+})
+
+
+/**
  * @summary Update a bet (settle result)
  */
 export const UpdateBetParams = zod.object({
   "id": zod.coerce.number()
 })
 
-export const updateBetBodyProfitBoostPercentMin = 0;
-export const updateBetBodyProfitBoostPercentMax = 1000;
-
-export const updateBetBodyParlayLegsItemDescriptionMax = 160;
-
-export const updateBetBodyParlayLegsMin = 2;
-export const updateBetBodyParlayLegsMax = 20;
+export const updateBetBodyCorrectionReasonMin = 3;
+export const updateBetBodyCorrectionReasonMax = 160;
 
 
 
 export const UpdateBetBody = zod.object({
   "status": zod.enum(['pending', 'won', 'lost', 'push', 'void']).optional(),
   "actualPayout": zod.number().optional(),
-  "profitBoostPercent": zod.number().min(updateBetBodyProfitBoostPercentMin).max(updateBetBodyProfitBoostPercentMax).optional(),
-  "parlayLegs": zod.array(zod.object({
-  "description": zod.string().min(1).max(updateBetBodyParlayLegsItemDescriptionMax),
-  "odds": zod.number(),
-  "sport": zod.string(),
-  "betType": zod.string()
-})).min(updateBetBodyParlayLegsMin).max(updateBetBodyParlayLegsMax).optional(),
-  "notes": zod.string().optional()
+  "description": zod.string().optional(),
+  "sportsbook": zod.string().optional(),
+  "sport": zod.string().optional(),
+  "notes": zod.string().optional(),
+  "correctionReason": zod.string().min(updateBetBodyCorrectionReasonMin).max(updateBetBodyCorrectionReasonMax).optional()
 })
 
 export const updateBetResponseParlayLegsItemDescriptionMax = 160;
@@ -191,10 +240,19 @@ export const UpdateBetResponse = zod.object({
 
 
 /**
- * @summary Delete a bet
+ * @summary Remove an incorrect open bet entry
  */
 export const DeleteBetParams = zod.object({
   "id": zod.coerce.number()
+})
+
+export const deleteBetBodyReasonMin = 3;
+export const deleteBetBodyReasonMax = 160;
+
+
+
+export const DeleteBetBody = zod.object({
+  "reason": zod.string().min(deleteBetBodyReasonMin).max(deleteBetBodyReasonMax)
 })
 
 export const DeleteBetResponse = zod.void()

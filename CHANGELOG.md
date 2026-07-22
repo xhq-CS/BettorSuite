@@ -3,6 +3,27 @@
 All notable BettorSuite releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [2.3.0] - 2026-07-22
+
+### Added
+
+- An auditable Book Keeper wallet ledger covering initial setup, deposits, withdrawals, wagers, payouts, refunds, bet removals, and settled-result corrections.
+- Three reasoned sportsbook-balance reconciliations per user per calendar month, with deposits and withdrawals excluded from the limit.
+- Recent wallet activity and reconciliation availability in the Book Keeper wallet manager.
+- A circular profile photo editor with drag positioning, zoom, reset, validation, and optimized WebP output.
+
+### Changed
+
+- Locked wager, odds, bet type, parlay legs, and profit boosts after a Book Keeper bet is placed.
+- Limited open-entry removal to pending bets and required a reason; settled bets remain in the permanent ledger.
+- Required a reason to correct a settled result and prevented settled bets from being reopened.
+- Kept Mock Betting flexible for strategy testing while making Book Keeper reflect real sportsbook activity.
+
+### Fixed
+
+- Repaired profile photo selection and upload across production security settings.
+- Kept Book Keeper wallet changes synchronized with bet placement, settlement, corrections, and open-entry removal.
+
 ## [2.2.0] - 2026-07-22
 
 ### Added
@@ -126,6 +147,7 @@ The first deployable BettorStats release replaced manual betting records with on
 - Community foundations with groups, group chat, the public War Room, and leaderboard.
 - Admin login and production-ready Vercel routing, API bundling, security headers, and database configuration.
 
+[2.3.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/xhq-CS/BettorSuite/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.0.0...v2.1.0

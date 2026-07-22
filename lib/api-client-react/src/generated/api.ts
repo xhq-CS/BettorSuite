@@ -22,6 +22,7 @@ import type {
 import type {
   Bet,
   BetInput,
+  BetRemovalInput,
   BetSummary,
   BetUpdate,
   Conversation,
@@ -44,6 +45,8 @@ import type {
   SimulatorBetInput,
   SimulatorBetSettle,
   SimulatorWallet,
+  TrackerWallet,
+  TrackerWalletTransactionInput,
   UserProfile,
   UserProfileUpdate,
   WalletReset
@@ -385,6 +388,154 @@ export function useGetBetSummary<TData = Awaited<ReturnType<typeof getBetSummary
 
 
 
+export const getGetTrackerWalletUrl = () => {
+
+
+
+
+  return `/api/bets/wallet`
+}
+
+/**
+ * @summary Get the Book Keeper wallet and recent ledger activity
+ */
+export const getTrackerWallet = async ( options?: RequestInit): Promise<TrackerWallet> => {
+
+  return customFetch<TrackerWallet>(getGetTrackerWalletUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTrackerWalletQueryKey = () => {
+    return [
+    `/api/bets/wallet`
+    ] as const;
+    }
+
+
+export const getGetTrackerWalletQueryOptions = <TData = Awaited<ReturnType<typeof getTrackerWallet>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTrackerWallet>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTrackerWalletQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTrackerWallet>>> = ({ signal }) => getTrackerWallet({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTrackerWallet>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetTrackerWalletQueryResult = NonNullable<Awaited<ReturnType<typeof getTrackerWallet>>>
+export type GetTrackerWalletQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the Book Keeper wallet and recent ledger activity
+ */
+
+export function useGetTrackerWallet<TData = Awaited<ReturnType<typeof getTrackerWallet>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getTrackerWallet>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetTrackerWalletQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateTrackerWalletTransactionUrl = () => {
+
+
+
+
+  return `/api/bets/wallet/transactions`
+}
+
+/**
+ * @summary Record a deposit, withdrawal, or limited balance reconciliation
+ */
+export const createTrackerWalletTransaction = async (trackerWalletTransactionInput: TrackerWalletTransactionInput, options?: RequestInit): Promise<TrackerWallet> => {
+
+  return customFetch<TrackerWallet>(getCreateTrackerWalletTransactionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(trackerWalletTransactionInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTrackerWalletTransactionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTrackerWalletTransaction>>, TError,{data: BodyType<TrackerWalletTransactionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTrackerWalletTransaction>>, TError,{data: BodyType<TrackerWalletTransactionInput>}, TContext> => {
+
+const mutationKey = ['createTrackerWalletTransaction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTrackerWalletTransaction>>, {data: BodyType<TrackerWalletTransactionInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTrackerWalletTransaction(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTrackerWalletTransactionMutationResult = NonNullable<Awaited<ReturnType<typeof createTrackerWalletTransaction>>>
+    export type CreateTrackerWalletTransactionMutationBody = BodyType<TrackerWalletTransactionInput>
+    export type CreateTrackerWalletTransactionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Record a deposit, withdrawal, or limited balance reconciliation
+ */
+export const useCreateTrackerWalletTransaction = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTrackerWalletTransaction>>, TError,{data: BodyType<TrackerWalletTransactionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createTrackerWalletTransaction>>,
+        TError,
+        {data: BodyType<TrackerWalletTransactionInput>},
+        TContext
+      > => {
+      return useMutation(getCreateTrackerWalletTransactionMutationOptions(options));
+    }
+
 export const getUpdateBetUrl = (id: number,) => {
 
 
@@ -466,16 +617,17 @@ export const getDeleteBetUrl = (id: number,) => {
 }
 
 /**
- * @summary Delete a bet
+ * @summary Remove an incorrect open bet entry
  */
-export const deleteBet = async (id: number, options?: RequestInit): Promise<void> => {
+export const deleteBet = async (id: number,
+    betRemovalInput: BetRemovalInput, options?: RequestInit): Promise<void> => {
 
   return customFetch<void>(getDeleteBetUrl(id),
   {
     ...options,
-    method: 'DELETE'
-
-
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(betRemovalInput)
   }
 );}
 
@@ -484,8 +636,8 @@ export const deleteBet = async (id: number, options?: RequestInit): Promise<void
 
 
 export const getDeleteBetMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBet>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteBet>>, TError,{id: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBet>>, TError,{id: number;data: BodyType<BetRemovalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteBet>>, TError,{id: number;data: BodyType<BetRemovalInput>}, TContext> => {
 
 const mutationKey = ['deleteBet'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -497,10 +649,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteBet>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteBet>>, {id: number;data: BodyType<BetRemovalInput>}> = (props) => {
+          const {id,data} = props ?? {};
 
-          return  deleteBet(id,requestOptions)
+          return  deleteBet(id,data,requestOptions)
         }
 
 
@@ -511,18 +663,18 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type DeleteBetMutationResult = NonNullable<Awaited<ReturnType<typeof deleteBet>>>
-
+    export type DeleteBetMutationBody = BodyType<BetRemovalInput>
     export type DeleteBetMutationError = ErrorType<unknown>
 
     /**
- * @summary Delete a bet
+ * @summary Remove an incorrect open bet entry
  */
 export const useDeleteBet = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBet>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteBet>>, TError,{id: number;data: BodyType<BetRemovalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteBet>>,
         TError,
-        {id: number},
+        {id: number;data: BodyType<BetRemovalInput>},
         TContext
       > => {
       return useMutation(getDeleteBetMutationOptions(options));

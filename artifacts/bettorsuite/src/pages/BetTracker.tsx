@@ -73,7 +73,6 @@ import { ProfitBoostBadge } from "@/components/ProfitBoostBadge";
 import {
   ParlayLegEditor,
   createParlayLegs,
-  toParlayDrafts,
   validParlayLegs,
   type ParlayLegDraft,
 } from "@/components/ParlayLegEditor";
@@ -93,6 +92,25 @@ const SPORTSBOOKS = [
   { name: "DraftKings", logo: "/sportsbooks/draftkings.avif" },
   { name: "FanDuel", logo: "/sportsbooks/fanduel.jfif" },
 ] as const;
+
+type WalletTransaction = {
+  id: number;
+  type: string;
+  amount: number;
+  balanceAfter: number;
+  reason: string | null;
+  betId: number | null;
+  createdAt: string;
+};
+
+type TrackerWallet = {
+  balance: number;
+  initialized: boolean;
+  reconciliationsUsed: number;
+  reconciliationLimit: number;
+  reconciliationResetsAt: string;
+  transactions: WalletTransaction[];
+};
 
 function sportsbookLogo(name?: string | null) {
   return SPORTSBOOKS.find(
@@ -125,20 +143,14 @@ export default function BetTracker() {
   const [configureOpen, setConfigureOpen] = useState(false);
   const [configuredBetId, setConfiguredBetId] = useState<number | null>(null);
   const [configuredDescription, setConfiguredDescription] = useState("");
-  const [configuredType, setConfiguredType] = useState("prop");
   const [configuredBook, setConfiguredBook] = useState("");
-  const [configuredWager, setConfiguredWager] = useState("");
-  const [configuredOdds, setConfiguredOdds] = useState("");
-  const [configuredProfitBoost, setConfiguredProfitBoost] = useState("");
   const [configuredSport, setConfiguredSport] = useState("NBA");
   const [configuredStatus, setConfiguredStatus] = useState<
-    "pending" | "won" | "lost" | "push"
+    "pending" | "won" | "lost" | "push" | "void"
   >("pending");
-  const [configuredMode, setConfiguredMode] = useState<"straight" | "parlay">(
-    "straight",
-  );
-  const [configuredParlayLegs, setConfiguredParlayLegs] =
-    useState<ParlayLegDraft[]>(createParlayLegs);
+  const [configuredOriginalStatus, setConfiguredOriginalStatus] = useState("pending");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [deleteReason, setDeleteReason] = useState("");
   const [configureAttempted, setConfigureAttempted] = useState(false);
   const [configureBusy, setConfigureBusy] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
@@ -148,6 +160,8 @@ export default function BetTracker() {
   const [chartDisplay, setChartDisplay] = useState<"money" | "units">("money");
   const [walletOpen, setWalletOpen] = useState(false);
   const [walletInput, setWalletInput] = useState("");
+  const [walletAction, setWalletAction] = useState<"deposit" | "withdrawal" | "reconciliation">("deposit");
+  const [walletReason, setWalletReason] = useState("");
   const [walletBusy, setWalletBusy] = useState(false);
   const [resetWageredOpen, setResetWageredOpen] = useState(false);
   const [resetWageredBusy, setResetWageredBusy] = useState(false);
@@ -176,7 +190,7 @@ export default function BetTracker() {
   const { data: unitWallet } = useGetSimulatorWallet();
   const { data: trackerWallet, isLoading: trackerWalletLoading } = useQuery({
     queryKey: ["tracker-wallet"],
-    queryFn: () => api<{ balance: number }>("/bets/wallet"),
+    queryFn: () => api<TrackerWallet>("/bets/wallet"),
   });
 
   const createBet = useCreateBet();
@@ -216,17 +230,9 @@ export default function BetTracker() {
     (!odds || !Number.isFinite(Number(odds)) || Number(odds) === 0);
   const configuredDescriptionInvalid =
     configureAttempted && !configuredDescription.trim();
-  const configuredWagerInvalid =
-    configureAttempted &&
-    (!configuredWager ||
-      !Number.isFinite(Number(configuredWager)) ||
-      Number(configuredWager) <= 0);
-  const configuredOddsInvalid =
-    configureAttempted &&
-    configuredMode === "straight" &&
-    (!configuredOdds ||
-      !Number.isFinite(Number(configuredOdds)) ||
-      Number(configuredOdds) === 0);
+  const configuredBet = betList.find((bet) => bet.id === configuredBetId);
+  const correctionReasonRequired =
+    configuredOriginalStatus !== "pending" && configuredStatus !== configuredOriginalStatus;
   const potentialPayoutPreview = calculatePayout(
     Number(wager),
     effectiveOdds,
@@ -302,7 +308,7 @@ export default function BetTracker() {
 
   const handleSettle = (id: number, status: "won" | "lost" | "push") => {
     const bet = betList.find((b) => b.id === id);
-    if (!bet) return;
+    if (!bet || bet.status !== "pending") return;
 
     let actualPayout = 0;
     if (status === "won") actualPayout = bet.potentialPayout || 0;
@@ -326,37 +332,24 @@ export default function BetTracker() {
     setConfigureAttempted(false);
     setConfiguredBetId(bet.id);
     setConfiguredDescription(bet.description);
-    setConfiguredType(bet.betType);
     setConfiguredBook(bet.sportsbook ?? "");
-    setConfiguredWager(String(bet.wager));
-    setConfiguredOdds(String(bet.odds));
-    setConfiguredProfitBoost(
-      Number(bet.profitBoostPercent) > 0 ? String(bet.profitBoostPercent) : "",
-    );
     setConfiguredSport(bet.sport ?? "NBA");
     setConfiguredStatus(bet.status);
-    setConfiguredMode(
-      bet.betType === "parlay" || bet.parlayLegs?.length
-        ? "parlay"
-        : "straight",
-    );
-    setConfiguredParlayLegs(toParlayDrafts(bet.parlayLegs));
+    setConfiguredOriginalStatus(bet.status);
+    setCorrectionReason("");
+    setDeleteReason("");
     setDeleteConfirm(false);
     setConfigureOpen(true);
   };
 
   const saveConfiguredBet = async () => {
     setConfigureAttempted(true);
-    const normalizedLegs =
-      configuredMode === "parlay" ? validParlayLegs(configuredParlayLegs) : [];
-    if (
-      !configuredBetId ||
-      !configuredDescription.trim() ||
-      Number(configuredWager) <= 0 ||
-      (configuredMode === "straight" && !Number(configuredOdds)) ||
-      (configuredMode === "parlay" && !normalizedLegs)
-    ) {
-      toast.error("Enter valid bet details");
+    if (!configuredBetId || !configuredDescription.trim()) {
+      toast.error("Enter a name for this bet");
+      return;
+    }
+    if (correctionReasonRequired && correctionReason.trim().length < 3) {
+      toast.error("Add a reason for correcting this settled result");
       return;
     }
     setConfigureBusy(true);
@@ -365,17 +358,10 @@ export default function BetTracker() {
         method: "PATCH",
         body: JSON.stringify({
           description: configuredDescription.trim(),
-          betType: configuredMode === "parlay" ? "parlay" : configuredType,
           sportsbook: configuredBook,
-          wager: Number(configuredWager),
-          odds:
-            configuredMode === "parlay"
-              ? calculateParlayOdds(configuredParlayLegs)
-              : Number(configuredOdds),
-          parlayLegs: normalizedLegs,
-          profitBoostPercent: Number(configuredProfitBoost || 0),
           sport: configuredSport,
           status: configuredStatus,
+          correctionReason: correctionReason.trim() || undefined,
         }),
       });
       toast.success("Bet updated");
@@ -393,9 +379,16 @@ export default function BetTracker() {
 
   const removeConfiguredBet = async () => {
     if (!configuredBetId) return;
+    if (deleteReason.trim().length < 3) {
+      toast.error("Add a reason for removing this open bet");
+      return;
+    }
     setConfigureBusy(true);
     try {
-      await api(`/bets/${configuredBetId}`, { method: "DELETE" });
+      await api(`/bets/${configuredBetId}`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason: deleteReason.trim() }),
+      });
       toast.success("Bet removed");
       setConfigureOpen(false);
       refreshBets();
@@ -409,26 +402,38 @@ export default function BetTracker() {
   };
 
   const openWallet = () => {
-    setWalletInput(Number(trackerWallet?.balance ?? 0).toFixed(2));
+    const initialAction = trackerWallet?.initialized ? "deposit" : "reconciliation";
+    setWalletAction(initialAction);
+    setWalletInput(initialAction === "reconciliation" ? Number(trackerWallet?.balance ?? 0).toFixed(2) : "");
+    setWalletReason("");
     setWalletOpen(true);
   };
 
   const saveWallet = async () => {
-    const requestedBalance = Number(walletInput);
-    if (!Number.isFinite(requestedBalance) || requestedBalance < 0) {
-      toast.error("Enter a valid wallet balance");
+    const requestedValue = Number(walletInput);
+    if (!Number.isFinite(requestedValue) || requestedValue < 0 || (walletAction !== "reconciliation" && requestedValue <= 0)) {
+      toast.error(walletAction === "reconciliation" ? "Enter a valid wallet balance" : "Enter an amount greater than $0");
       return;
     }
-    const balance = Math.round((requestedBalance + Number.EPSILON) * 100) / 100;
+    if (walletAction === "reconciliation" && trackerWallet?.initialized && walletReason.trim().length < 3) {
+      toast.error("Add a reason for this reconciliation");
+      return;
+    }
+    const value = Math.round((requestedValue + Number.EPSILON) * 100) / 100;
     setWalletBusy(true);
     try {
-      await api<{ balance: number }>("/bets/wallet", {
-        method: "PATCH",
-        body: JSON.stringify({ balance }),
+      await api<TrackerWallet>("/bets/wallet/transactions", {
+        method: "POST",
+        body: JSON.stringify({
+          type: walletAction,
+          amount: walletAction === "reconciliation" ? undefined : value,
+          balance: walletAction === "reconciliation" ? value : undefined,
+          reason: walletReason.trim() || undefined,
+        }),
       });
       await queryClient.invalidateQueries({ queryKey: ["tracker-wallet"] });
       setWalletOpen(false);
-      toast.success("Tracker wallet updated");
+      toast.success(walletAction === "reconciliation" && !trackerWallet?.initialized ? "Book Keeper wallet set up" : "Wallet ledger updated");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Unable to update wallet",
@@ -573,8 +578,8 @@ export default function BetTracker() {
               <button
                 type="button"
                 onClick={openWallet}
-                aria-label="Edit tracker wallet"
-                title="Match sportsbook balance"
+                aria-label="Manage Book Keeper wallet"
+                title="Manage wallet ledger"
                 className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <Edit2 className="h-4 w-4" />
@@ -588,7 +593,10 @@ export default function BetTracker() {
               </p>
             )}
             <p className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Wallet className="h-3 w-3" /> Match your sportsbook
+              <Wallet className="h-3 w-3" />
+              {trackerWallet?.initialized
+                ? `${Math.max(0, (trackerWallet.reconciliationLimit ?? 3) - (trackerWallet.reconciliationsUsed ?? 0))} reconciliations left`
+                : "Set your sportsbook balance"}
             </p>
           </CardContent>
         </Card>
@@ -1075,14 +1083,17 @@ export default function BetTracker() {
                               Push
                             </Badge>
                           )}
+                          {bet.status === "void" && (
+                            <Badge variant="outline" className="min-w-[64px] justify-center text-sm px-2.5 py-0.5">
+                              Void
+                            </Badge>
+                          )}
                         </TableCell>
                         <TableCell className="text-right pr-4">
                           <div className="flex items-center justify-end gap-1">
-                            <button
+                            {bet.status === "pending" && <><button
                               aria-label="Mark bet as won"
-                              disabled={
-                                bet.status === "won" || updateBet.isPending
-                              }
+                              disabled={updateBet.isPending}
                               onClick={() => handleSettle(bet.id, "won")}
                               className="w-[30px] h-[30px] rounded-md bg-green-500/10 hover:bg-green-500/20 text-green-400 disabled:opacity-35 flex items-center justify-center transition-colors"
                               title="Mark Won"
@@ -1091,9 +1102,7 @@ export default function BetTracker() {
                             </button>
                             <button
                               aria-label="Mark bet as lost"
-                              disabled={
-                                bet.status === "lost" || updateBet.isPending
-                              }
+                              disabled={updateBet.isPending}
                               onClick={() => handleSettle(bet.id, "lost")}
                               className="w-[30px] h-[30px] rounded-md bg-red-500/10 hover:bg-red-500/20 text-red-400 disabled:opacity-35 flex items-center justify-center transition-colors"
                               title="Mark Lost"
@@ -1102,15 +1111,13 @@ export default function BetTracker() {
                             </button>
                             <button
                               aria-label="Mark bet as push"
-                              disabled={
-                                bet.status === "push" || updateBet.isPending
-                              }
+                              disabled={updateBet.isPending}
                               onClick={() => handleSettle(bet.id, "push")}
                               className="w-[30px] h-[30px] rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 disabled:opacity-35 flex items-center justify-center transition-colors"
                               title="Mark Push"
                             >
                               <MinusCircle className="w-[15px] h-[15px]" />
-                            </button>
+                            </button></>}
                             <button
                               aria-label="Share bet"
                               onClick={() => setShareBet(bet)}
@@ -1120,10 +1127,10 @@ export default function BetTracker() {
                               <Share2 className="h-[15px] w-[15px]" />
                             </button>
                             <button
-                              aria-label="Configure bet"
+                              aria-label={bet.status === "pending" ? "Manage bet" : "Review settled bet"}
                               onClick={() => openConfigure(bet)}
                               className="w-[30px] h-[30px] rounded-md border border-border hover:bg-muted text-slate-600 flex items-center justify-center transition-colors"
-                              title="Configure bet"
+                              title={bet.status === "pending" ? "Manage bet" : "Review or correct result"}
                             >
                               <Edit2 className="w-[15px] h-[15px]" />
                             </button>
@@ -1276,32 +1283,13 @@ export default function BetTracker() {
                         >
                           <Share2 className="mr-1.5 h-3.5 w-3.5" /> Share
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={bet.status === "won"}
-                          onClick={() => handleSettle(bet.id, "won")}
-                        >
-                          Won
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={bet.status === "lost"}
-                          onClick={() => handleSettle(bet.id, "lost")}
-                        >
-                          Lost
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={bet.status === "push"}
-                          onClick={() => handleSettle(bet.id, "push")}
-                        >
-                          Push
-                        </Button>
+                        {bet.status === "pending" && <>
+                          <Button size="sm" variant="outline" onClick={() => handleSettle(bet.id, "won")}>Won</Button>
+                          <Button size="sm" variant="outline" onClick={() => handleSettle(bet.id, "lost")}>Lost</Button>
+                          <Button size="sm" variant="outline" onClick={() => handleSettle(bet.id, "push")}>Push</Button>
+                        </>}
                         <Button size="sm" onClick={() => openConfigure(bet)}>
-                          Configure
+                          {bet.status === "pending" ? "Manage" : "Review"}
                         </Button>
                       </div>
                     </div>
@@ -1368,14 +1356,14 @@ export default function BetTracker() {
       {/* Tracker Wallet Modal */}
       {walletOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm overflow-hidden rounded-xl border border-border bg-card shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-card shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-border px-5 py-4">
               <div>
                 <h2 className="flex items-center gap-2 text-lg font-display uppercase tracking-wider">
-                  <Wallet className="h-5 w-5 text-primary" /> Tracker Wallet
+                  <Wallet className="h-5 w-5 text-primary" /> Book Keeper Wallet
                 </h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Set this to your current sportsbook balance.
+                  Deposits, withdrawals, bets, and payouts stay in one auditable ledger.
                 </p>
               </div>
               <button
@@ -1388,9 +1376,42 @@ export default function BetTracker() {
               </button>
             </div>
             <div className="space-y-4 p-5">
+              {trackerWallet?.initialized ? (
+                <>
+                  <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/40 p-1">
+                    {(["deposit", "withdrawal", "reconciliation"] as const).map((action) => (
+                      <button
+                        key={action}
+                        type="button"
+                        onClick={() => {
+                          setWalletAction(action);
+                          setWalletInput(action === "reconciliation" ? Number(trackerWallet.balance).toFixed(2) : "");
+                          setWalletReason("");
+                        }}
+                        className={`rounded-md px-2 py-2 text-xs font-semibold capitalize transition-colors ${walletAction === action ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                      >
+                        {action === "reconciliation" ? "Reconcile" : action}
+                      </button>
+                    ))}
+                  </div>
+                  {walletAction === "reconciliation" && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      <span className="font-semibold">
+                        {Math.max(0, trackerWallet.reconciliationLimit - trackerWallet.reconciliationsUsed)} of {trackerWallet.reconciliationLimit} corrections remain this month.
+                      </span>{" "}
+                      Deposits and withdrawals do not use this limit.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-950">
+                  <p className="font-semibold">Initial wallet setup</p>
+                  <p className="mt-1 text-xs text-blue-800">Enter your current sportsbook balance. Your first setup does not count as a reconciliation.</p>
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-xs font-mono uppercase text-muted-foreground">
-                  Sportsbook Balance
+                  {walletAction === "reconciliation" ? "Sportsbook Balance" : `${walletAction} Amount`}
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-muted-foreground">
@@ -1399,7 +1420,7 @@ export default function BetTracker() {
                   <Input
                     aria-label="Sportsbook balance"
                     type="number"
-                    min="0"
+                    min={walletAction === "reconciliation" ? "0" : "0.01"}
                     step="0.01"
                     value={walletInput}
                     onChange={(event) => setWalletInput(event.target.value)}
@@ -1407,6 +1428,43 @@ export default function BetTracker() {
                   />
                 </div>
               </div>
+              <div className="space-y-2">
+                <label className="text-xs font-mono uppercase text-muted-foreground">
+                  Reason {walletAction === "reconciliation" && trackerWallet?.initialized ? "*" : "(optional)"}
+                </label>
+                <Input
+                  value={walletReason}
+                  onChange={(event) => setWalletReason(event.target.value)}
+                  maxLength={160}
+                  placeholder={walletAction === "reconciliation" ? "Why does the balance need correcting?" : `Optional ${walletAction} note`}
+                />
+              </div>
+              {trackerWallet?.transactions?.length ? (
+                <div className="space-y-2 border-t border-border pt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-mono uppercase text-muted-foreground">Recent Activity</p>
+                    <span className="text-[11px] text-muted-foreground">Balance after</span>
+                  </div>
+                  <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
+                    {trackerWallet.transactions.slice(0, 8).map((transaction) => (
+                      <div key={transaction.id} className="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-muted/40">
+                        <div className="min-w-0">
+                          <p className="truncate text-xs font-semibold capitalize">{transaction.type.replaceAll("_", " ")}</p>
+                          <p className="truncate text-[11px] text-muted-foreground">
+                            {transaction.reason || format(new Date(transaction.createdAt), "MMM d, yyyy")}
+                          </p>
+                        </div>
+                        <div className="shrink-0 text-right font-mono text-xs">
+                          <p className={transaction.amount > 0 ? "text-emerald-600" : transaction.amount < 0 ? "text-red-600" : "text-muted-foreground"}>
+                            {transaction.amount > 0 ? "+" : ""}{formatCurrency(transaction.amount)}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">{formatCurrency(transaction.balanceAfter)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -1423,7 +1481,7 @@ export default function BetTracker() {
                   onClick={saveWallet}
                   disabled={walletBusy}
                 >
-                  {walletBusy ? "Saving..." : "Save Wallet"}
+                  {walletBusy ? "Saving..." : trackerWallet?.initialized ? `Record ${walletAction === "reconciliation" ? "Reconciliation" : walletAction}` : "Set Up Wallet"}
                 </Button>
               </div>
             </div>
@@ -1651,10 +1709,10 @@ export default function BetTracker() {
             <div className="flex items-center justify-between border-b border-border px-6 py-4">
               <div>
                 <h2 className="flex items-center gap-2 text-lg font-display uppercase tracking-wider">
-                  <Edit2 className="h-5 w-5 text-primary" /> Configure Bet
+                  <Edit2 className="h-5 w-5 text-primary" /> {configuredOriginalStatus === "pending" ? "Manage Bet" : "Review Result"}
                 </h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Update the bet details or settle its result.
+                  Financial terms are locked once a Book Keeper bet is placed.
                 </p>
               </div>
               <button
@@ -1667,10 +1725,37 @@ export default function BetTracker() {
             </div>
 
             <div className="space-y-4 p-6">
-              <BetModeToggle
-                value={configuredMode}
-                onChange={setConfiguredMode}
-              />
+              {configuredBet && (
+                <div className="rounded-xl border border-border bg-muted/30 p-4">
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                    <div>
+                      <p className="text-[10px] font-mono uppercase text-muted-foreground">Type</p>
+                      <p className="mt-1 text-sm font-semibold">{configuredBet.betType === "parlay" ? `${configuredBet.parlayLegs?.length ?? 0}-Leg Parlay` : formatBetType(configuredBet.betType)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-mono uppercase text-muted-foreground">Odds</p>
+                      <p className="mt-1 font-mono text-sm font-semibold">{formatOdds(configuredBet.odds)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-mono uppercase text-muted-foreground">Wager</p>
+                      <p className="mt-1 font-mono text-sm font-semibold">{formatCurrency(configuredBet.wager)}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-mono uppercase text-muted-foreground">Potential</p>
+                      <p className="mt-1 font-mono text-sm font-semibold">{formatCurrency(Number(configuredBet.potentialPayout ?? 0))}</p>
+                    </div>
+                  </div>
+                  {Number(configuredBet.profitBoostPercent) > 0 && (
+                    <div className="mt-3"><ProfitBoostBadge percent={Number(configuredBet.profitBoostPercent)} /></div>
+                  )}
+                  {configuredBet.betType === "parlay" && (configuredBet.parlayLegs?.length ?? 0) > 0 && (
+                    <div className="mt-4 border-t border-border pt-3">
+                      <ParlayLegsSummary legs={configuredBet.parlayLegs as any} />
+                    </div>
+                  )}
+                  <p className="mt-3 text-[11px] text-muted-foreground">Wager, odds, type, legs, and boosts cannot be edited after placement.</p>
+                </div>
+              )}
               <div className="space-y-2">
                 <label className="text-xs font-mono uppercase text-muted-foreground">
                   Bet Name *
@@ -1699,101 +1784,23 @@ export default function BetTracker() {
                   </p>
                 )}
               </div>
-              {configuredMode === "parlay" && (
-                <ParlayLegEditor
-                  legs={configuredParlayLegs}
-                  onChange={setConfiguredParlayLegs}
-                  showErrors={configureAttempted}
-                />
-              )}
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <label className="text-xs font-mono uppercase text-muted-foreground">
-                    Wager ($) *
-                  </label>
-                  <Input
-                    aria-invalid={configuredWagerInvalid}
-                    aria-describedby={
-                      configuredWagerInvalid
-                        ? "tracker-config-wager-error"
-                        : undefined
-                    }
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    value={configuredWager}
-                    onChange={(event) => setConfiguredWager(event.target.value)}
-                    className={`bg-background/50 ${configuredWagerInvalid ? "border-red-400 focus-visible:border-red-500 focus-visible:ring-red-200" : ""}`}
-                  />
-                  {configuredWagerInvalid && (
-                    <p
-                      id="tracker-config-wager-error"
-                      className="text-xs font-medium text-red-600"
-                      role="alert"
-                    >
-                      Enter a wager greater than $0.
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-mono uppercase text-muted-foreground">
-                    {configuredMode === "parlay"
-                      ? "Combined Odds"
-                      : "American Odds *"}
-                  </label>
-                  <Input
-                    aria-invalid={configuredOddsInvalid}
-                    aria-describedby={
-                      configuredOddsInvalid
-                        ? "tracker-config-odds-error"
-                        : undefined
-                    }
-                    type={configuredMode === "parlay" ? "text" : "number"}
-                    readOnly={configuredMode === "parlay"}
-                    value={
-                      configuredMode === "parlay"
-                        ? formatOdds(calculateParlayOdds(configuredParlayLegs))
-                        : configuredOdds
-                    }
-                    onChange={(event) => setConfiguredOdds(event.target.value)}
-                    className={`bg-background/50 font-mono ${configuredOddsInvalid ? "border-red-400 focus-visible:border-red-500 focus-visible:ring-red-200" : ""}`}
-                  />
-                  {configuredOddsInvalid && (
-                    <p
-                      id="tracker-config-odds-error"
-                      className="text-xs font-medium text-red-600"
-                      role="alert"
-                    >
-                      Enter valid American odds.
-                    </p>
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-mono uppercase text-muted-foreground">
-                    Status
-                  </label>
+                  <label className="text-xs font-mono uppercase text-muted-foreground">Status</label>
                   <Select
                     value={configuredStatus}
-                    onValueChange={(
-                      value: "pending" | "won" | "lost" | "push",
-                    ) => setConfiguredStatus(value)}
+                    onValueChange={(value: "pending" | "won" | "lost" | "push" | "void") => setConfiguredStatus(value)}
                   >
-                    <SelectTrigger className="bg-background/50">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
+                      {configuredOriginalStatus === "pending" && <SelectItem value="pending">Open</SelectItem>}
                       <SelectItem value="won">Won</SelectItem>
                       <SelectItem value="lost">Lost</SelectItem>
                       <SelectItem value="push">Push</SelectItem>
+                      <SelectItem value="void">Void</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-
-              {configuredMode === "straight" && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label className="text-xs font-mono uppercase text-muted-foreground">
                       Sport
@@ -1818,30 +1825,7 @@ export default function BetTracker() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-mono uppercase text-muted-foreground">
-                      Type
-                    </label>
-                    <Select
-                      value={configuredType}
-                      onValueChange={setConfiguredType}
-                    >
-                      <SelectTrigger className="bg-background/50">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {BET_TYPE_OPTIONS.filter(
-                          (option) => option.value !== "parlay",
-                        ).map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
+              </div>
 
               <div className="space-y-2">
                 <label className="text-xs font-mono uppercase text-muted-foreground">
@@ -1853,36 +1837,37 @@ export default function BetTracker() {
                 />
               </div>
 
-              <ProfitBoostControl
-                value={configuredProfitBoost}
-                onValueChange={setConfiguredProfitBoost}
-              />
+              {correctionReasonRequired && (
+                <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                  <label className="text-xs font-mono uppercase text-amber-900">Correction Reason *</label>
+                  <Input
+                    value={correctionReason}
+                    onChange={(event) => setCorrectionReason(event.target.value)}
+                    maxLength={160}
+                    placeholder="Why is the settled result changing?"
+                    className="bg-white"
+                  />
+                  <p className="text-[11px] text-amber-800">This correction is recorded in the wallet audit trail.</p>
+                </div>
+              )}
 
               <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  {deleteConfirm ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-destructive">
-                        Remove this bet?
-                      </span>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setDeleteConfirm(false)}
-                        disabled={configureBusy}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="destructive"
-                        onClick={removeConfiguredBet}
-                        disabled={configureBusy}
-                      >
-                        {configureBusy ? "Removing..." : "Remove"}
-                      </Button>
+                  {configuredOriginalStatus === "pending" ? deleteConfirm ? (
+                    <div className="space-y-2">
+                      <Input
+                        value={deleteReason}
+                        onChange={(event) => setDeleteReason(event.target.value)}
+                        maxLength={160}
+                        placeholder="Reason for removing this entry"
+                        className="h-9 sm:w-64"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button type="button" size="sm" variant="ghost" onClick={() => setDeleteConfirm(false)} disabled={configureBusy}>Cancel</Button>
+                        <Button type="button" size="sm" variant="destructive" onClick={removeConfiguredBet} disabled={configureBusy}>
+                          {configureBusy ? "Removing..." : "Remove Entry"}
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <Button
@@ -1894,7 +1879,7 @@ export default function BetTracker() {
                     >
                       <Trash2 className="mr-2 h-4 w-4" /> Remove Bet
                     </Button>
-                  )}
+                  ) : <p className="max-w-56 text-xs text-muted-foreground">Settled bets remain in Book Keeper. Use a result correction if needed.</p>}
                 </div>
                 <div className="flex gap-2">
                   <Button
@@ -1910,7 +1895,7 @@ export default function BetTracker() {
                     onClick={saveConfiguredBet}
                     disabled={configureBusy}
                   >
-                    {configureBusy ? "Saving..." : "Save Changes"}
+                    {configureBusy ? "Saving..." : correctionReasonRequired ? "Correct Result" : "Save Changes"}
                   </Button>
                 </div>
               </div>

@@ -16,6 +16,8 @@ DATABASE_URL="postgresql://..." pnpm --filter @workspace/db push
 
 Do not run schema pushes as part of every Vercel build.
 
+Version `v2.3.0` adds the `tracker_wallet_transactions` ledger table. Apply the schema before promoting this release so Book Keeper wallet activity can be recorded safely.
+
 ## 3. Add environment variables
 
 Copy the names from `.env.example` into Vercel Project Settings → Environment Variables. Use different administrator passwords for Preview and Production. Never commit real values.

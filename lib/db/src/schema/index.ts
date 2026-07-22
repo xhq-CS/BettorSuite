@@ -5,3 +5,4 @@ export * from "./sharedBet";
 export * from "./social";
 export * from "./community";
 export * from "./groups";
+export * from "./trackerWallet";

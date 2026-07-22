@@ -86,6 +86,38 @@ paths:
               schema:
                 $ref: "#/components/schemas/BetSummary"
 
+  /bets/wallet:
+    get:
+      operationId: getTrackerWallet
+      tags: [bets]
+      summary: Get the Book Keeper wallet and recent ledger activity
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackerWallet"
+
+  /bets/wallet/transactions:
+    post:
+      operationId: createTrackerWalletTransaction
+      tags: [bets]
+      summary: Record a deposit, withdrawal, or limited balance reconciliation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TrackerWalletTransactionInput"
+      responses:
+        "201":
+          description: Recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TrackerWallet"
+
   /bets/{id}:
     patch:
       operationId: updateBet
@@ -112,12 +144,18 @@ paths:
     delete:
       operationId: deleteBet
       tags: [bets]
-      summary: Delete a bet
+      summary: Remove an incorrect open bet entry
       parameters:
         - name: id
           in: path
           required: true
           schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BetRemovalInput"
       responses:
         "204":
           description: Deleted
@@ -600,9 +638,51 @@ components:
       properties:
         status:       { type: string, enum: [pending, won, lost, push, void] }
         actualPayout: { type: number }
-        profitBoostPercent: { type: number, minimum: 0, maximum: 1000 }
-        parlayLegs:   { type: array, minItems: 2, maxItems: 20, items: { $ref: "#/components/schemas/ParlayLeg" } }
+        description:  { type: string }
+        sportsbook:   { type: string }
+        sport:        { type: string }
         notes:        { type: string }
+        correctionReason: { type: string, minLength: 3, maxLength: 160 }
+
+    BetRemovalInput:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 160 }
+
+    TrackerWalletTransaction:
+      type: object
+      required: [id, type, amount, balanceAfter, createdAt]
+      properties:
+        id: { type: integer }
+        type: { type: string }
+        amount: { type: number }
+        balanceAfter: { type: number }
+        reason: { type: ["string", "null"] }
+        betId: { type: ["integer", "null"] }
+        createdAt: { type: string }
+
+    TrackerWallet:
+      type: object
+      required: [balance, initialized, reconciliationsUsed, reconciliationLimit, reconciliationResetsAt, transactions]
+      properties:
+        balance: { type: number }
+        initialized: { type: boolean }
+        reconciliationsUsed: { type: integer }
+        reconciliationLimit: { type: integer }
+        reconciliationResetsAt: { type: string }
+        transactions:
+          type: array
+          items: { $ref: "#/components/schemas/TrackerWalletTransaction" }
+
+    TrackerWalletTransactionInput:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [deposit, withdrawal, reconciliation] }
+        amount: { type: number, minimum: 0.01 }
+        balance: { type: number, minimum: 0 }
+        reason: { type: string, maxLength: 160 }
 
     ParlayLeg:
       type: object

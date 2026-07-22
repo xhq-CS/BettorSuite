@@ -92,17 +92,63 @@ export const BetUpdateStatus = {
 export interface BetUpdate {
   status?: BetUpdateStatus;
   actualPayout?: number;
-  /**
-     * @minimum 0
-     * @maximum 1000
-     */
-  profitBoostPercent?: number;
-  /**
-     * @minItems 2
-     * @maxItems 20
-     */
-  parlayLegs?: ParlayLeg[];
+  description?: string;
+  sportsbook?: string;
+  sport?: string;
   notes?: string;
+  /**
+     * @minLength 3
+     * @maxLength 160
+     */
+  correctionReason?: string;
+}
+
+export interface BetRemovalInput {
+  /**
+     * @minLength 3
+     * @maxLength 160
+     */
+  reason: string;
+}
+
+export interface TrackerWalletTransaction {
+  id: number;
+  type: string;
+  amount: number;
+  balanceAfter: number;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  betId?: number | null;
+  createdAt: string;
+}
+
+export interface TrackerWallet {
+  balance: number;
+  initialized: boolean;
+  reconciliationsUsed: number;
+  reconciliationLimit: number;
+  reconciliationResetsAt: string;
+  transactions: TrackerWalletTransaction[];
+}
+
+export type TrackerWalletTransactionInputType = typeof TrackerWalletTransactionInputType[keyof typeof TrackerWalletTransactionInputType];
+
+
+export const TrackerWalletTransactionInputType = {
+  deposit: 'deposit',
+  withdrawal: 'withdrawal',
+  reconciliation: 'reconciliation',
+} as const;
+
+export interface TrackerWalletTransactionInput {
+  type: TrackerWalletTransactionInputType;
+  /** @minimum 0.01 */
+  amount?: number;
+  /** @minimum 0 */
+  balance?: number;
+  /** @maxLength 160 */
+  reason?: string;
 }
 
 export interface BetSummary {

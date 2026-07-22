@@ -8,6 +8,7 @@
 
 export * from './bet';
 export * from './betInput';
+export * from './betRemovalInput';
 export * from './betStatus';
 export * from './betSummary';
 export * from './betUpdate';
@@ -38,6 +39,10 @@ export * from './simulatorBetSettleStatus';
 export * from './simulatorBetStatus';
 export * from './simulatorWallet';
 export * from './simulatorWalletUnitMode';
+export * from './trackerWallet';
+export * from './trackerWalletTransaction';
+export * from './trackerWalletTransactionInput';
+export * from './trackerWalletTransactionInputType';
 export * from './userProfile';
 export * from './userProfileUpdate';
 export * from './walletReset';

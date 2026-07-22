@@ -14,6 +14,8 @@ export * from './betUpdate';
 export * from './betUpdateStatus';
 export * from './conversation';
 export * from './conversationInput';
+export * from './conversationNotificationState';
+export * from './conversationNotificationUpdate';
 export * from './followResult';
 export * from './healthStatus';
 export * from './leaderboardDay';

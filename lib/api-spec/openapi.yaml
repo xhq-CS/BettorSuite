@@ -508,6 +508,30 @@ paths:
               schema:
                 $ref: "#/components/schemas/Message"
 
+  /conversations/{id}/notifications:
+    patch:
+      operationId: updateConversationNotifications
+      tags: [messages]
+      summary: Mute or unmute notifications for the current user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConversationNotificationUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationNotificationState"
+
   # ── Leaderboard ──────────────────────────────────────────────────────────
   /leaderboard:
     get:
@@ -736,16 +760,29 @@ components:
     # ── Messages ─────────────────────────────────────────────────────────
     Conversation:
       type: object
-      required: [id, participantId, participantUsername, createdAt]
+      required: [id, participantId, participantUsername, notificationsMuted]
       properties:
         id:                   { type: integer }
         participantId:        { type: integer }
         participantUsername:  { type: string }
+        participantDisplayName: { type: ["string", "null"] }
         participantAvatarUrl: { type: ["string", "null"] }
         lastMessage:          { type: ["string", "null"] }
         lastMessageAt:        { type: ["string", "null"] }
+        notificationsMuted:   { type: boolean }
         unreadCount:          { type: integer }
-        createdAt:            { type: string }
+
+    ConversationNotificationUpdate:
+      type: object
+      required: [muted]
+      properties:
+        muted: { type: boolean }
+
+    ConversationNotificationState:
+      type: object
+      required: [notificationsMuted]
+      properties:
+        notificationsMuted: { type: boolean }
 
     ConversationInput:
       type: object

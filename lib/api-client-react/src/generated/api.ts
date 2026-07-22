@@ -26,6 +26,8 @@ import type {
   BetUpdate,
   Conversation,
   ConversationInput,
+  ConversationNotificationState,
+  ConversationNotificationUpdate,
   FollowResult,
   HealthStatus,
   LeaderboardEntry,
@@ -2168,6 +2170,78 @@ export const useSendMessage = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getSendMessageMutationOptions(options));
+    }
+
+export const getUpdateConversationNotificationsUrl = (id: number,) => {
+
+
+
+
+  return `/api/conversations/${id}/notifications`
+}
+
+/**
+ * @summary Mute or unmute notifications for the current user
+ */
+export const updateConversationNotifications = async (id: number,
+    conversationNotificationUpdate: ConversationNotificationUpdate, options?: RequestInit): Promise<ConversationNotificationState> => {
+
+  return customFetch<ConversationNotificationState>(getUpdateConversationNotificationsUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(conversationNotificationUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateConversationNotificationsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateConversationNotifications>>, TError,{id: number;data: BodyType<ConversationNotificationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateConversationNotifications>>, TError,{id: number;data: BodyType<ConversationNotificationUpdate>}, TContext> => {
+
+const mutationKey = ['updateConversationNotifications'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateConversationNotifications>>, {id: number;data: BodyType<ConversationNotificationUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateConversationNotifications(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateConversationNotificationsMutationResult = NonNullable<Awaited<ReturnType<typeof updateConversationNotifications>>>
+    export type UpdateConversationNotificationsMutationBody = BodyType<ConversationNotificationUpdate>
+    export type UpdateConversationNotificationsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mute or unmute notifications for the current user
+ */
+export const useUpdateConversationNotifications = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateConversationNotifications>>, TError,{id: number;data: BodyType<ConversationNotificationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateConversationNotifications>>,
+        TError,
+        {id: number;data: BodyType<ConversationNotificationUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateConversationNotificationsMutationOptions(options));
     }
 
 export const getGetLeaderboardUrl = () => {

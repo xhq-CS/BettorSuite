@@ -13,5 +13,8 @@ export async function ensureModerationSchema() {
       ADD COLUMN IF NOT EXISTS muted_by integer,
       ADD COLUMN IF NOT EXISTS notifications_muted boolean NOT NULL DEFAULT false,
       ADD COLUMN IF NOT EXISTS last_read_at timestamp;
+
+    ALTER TABLE conversation_participants
+      ADD COLUMN IF NOT EXISTS notifications_muted boolean NOT NULL DEFAULT false;
   `);
 }

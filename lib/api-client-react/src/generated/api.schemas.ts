@@ -272,13 +272,23 @@ export interface Conversation {
   participantId: number;
   participantUsername: string;
   /** @nullable */
+  participantDisplayName?: string | null;
+  /** @nullable */
   participantAvatarUrl?: string | null;
   /** @nullable */
   lastMessage?: string | null;
   /** @nullable */
   lastMessageAt?: string | null;
+  notificationsMuted: boolean;
   unreadCount?: number;
-  createdAt: string;
+}
+
+export interface ConversationNotificationUpdate {
+  muted: boolean;
+}
+
+export interface ConversationNotificationState {
+  notificationsMuted: boolean;
 }
 
 export interface ConversationInput {

@@ -31,7 +31,8 @@ export function useMessageNotifications() {
   });
 
   const directUnread = (conversations.data ?? []).reduce(
-    (total, conversation) => total + conversation.unreadCount,
+    (total, conversation) =>
+      total + (conversation.notificationsMuted ? 0 : conversation.unreadCount),
     0,
   );
   const groupUnread = (groups.data ?? []).reduce(

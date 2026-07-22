@@ -617,11 +617,12 @@ export const ListConversationsResponseItem = zod.object({
   "id": zod.number(),
   "participantId": zod.number(),
   "participantUsername": zod.string(),
+  "participantDisplayName": zod.string().nullish(),
   "participantAvatarUrl": zod.string().nullish(),
   "lastMessage": zod.string().nullish(),
   "lastMessageAt": zod.string().nullish(),
-  "unreadCount": zod.number().optional(),
-  "createdAt": zod.string()
+  "notificationsMuted": zod.boolean(),
+  "unreadCount": zod.number().optional()
 })
 export const ListConversationsResponse = zod.array(ListConversationsResponseItem)
 
@@ -637,11 +638,12 @@ export const CreateConversationResponse = zod.object({
   "id": zod.number(),
   "participantId": zod.number(),
   "participantUsername": zod.string(),
+  "participantDisplayName": zod.string().nullish(),
   "participantAvatarUrl": zod.string().nullish(),
   "lastMessage": zod.string().nullish(),
   "lastMessageAt": zod.string().nullish(),
-  "unreadCount": zod.number().optional(),
-  "createdAt": zod.string()
+  "notificationsMuted": zod.boolean(),
+  "unreadCount": zod.number().optional()
 })
 
 
@@ -681,6 +683,22 @@ export const SendMessageResponse = zod.object({
   "senderUsername": zod.string().optional(),
   "content": zod.string(),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Mute or unmute notifications for the current user
+ */
+export const UpdateConversationNotificationsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateConversationNotificationsBody = zod.object({
+  "muted": zod.boolean()
+})
+
+export const UpdateConversationNotificationsResponse = zod.object({
+  "notificationsMuted": zod.boolean()
 })
 
 

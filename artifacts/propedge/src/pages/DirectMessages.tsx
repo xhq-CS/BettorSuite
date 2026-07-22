@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Bell,
+  BellOff,
   Check,
   Layers3,
   MessageCircleMore,
@@ -110,6 +112,30 @@ export default function DirectMessages() {
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["dm-people-search", search] }),
   });
+  const toggleNotifications = useMutation({
+    mutationFn: (muted: boolean) =>
+      api<{ notificationsMuted: boolean }>(
+        `/conversations/${activeId}/notifications`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ muted }),
+        },
+      ),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      toast.success(
+        result.notificationsMuted
+          ? "DM notifications muted"
+          : "DM notifications unmuted",
+      );
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to update DM notifications",
+      ),
+  });
   const sendMessage = useMutation({
     mutationFn: () =>
       api(`/conversations/${activeId}/messages`, {
@@ -199,8 +225,9 @@ export default function DirectMessages() {
                           <div className="truncate text-sm font-semibold">{person.displayName || person.username}</div>
                           <div className="truncate text-[10px] text-slate-500">@{person.username}</div>
                         </button>
-                        <Button type="button" size="icon" variant={person.isFollowing ? "secondary" : "outline"} className="h-8 w-8" aria-label={person.isFollowing ? `Unfollow @${person.username}` : `Follow @${person.username}`} onClick={() => follow.mutate(person)}>
-                          {person.isFollowing ? <Check className="h-3.5 w-3.5" /> : <UserPlus className="h-3.5 w-3.5" />}
+                        <Button type="button" size="sm" variant={person.isFollowing ? "secondary" : "default"} className="h-8 shrink-0 rounded-full px-3 text-[11px]" aria-label={person.isFollowing ? `Unfollow @${person.username}` : `Follow @${person.username}`} onClick={() => follow.mutate(person)}>
+                          {person.isFollowing ? <Check className="mr-1 h-3.5 w-3.5" /> : <UserPlus className="mr-1 h-3.5 w-3.5" />}
+                          {person.isFollowing ? "Following" : "Follow"}
                         </Button>
                       </div>
                     ))}
@@ -232,7 +259,13 @@ export default function DirectMessages() {
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
                         <span className="truncate text-sm font-bold text-slate-900">{conversation.participantDisplayName || conversation.participantUsername}</span>
-                        {conversation.unreadCount > 0 && <span className="rounded-full bg-blue-600 px-1.5 py-0.5 font-mono text-[9px] font-bold text-white">{conversation.unreadCount}</span>}
+                        {conversation.notificationsMuted ? (
+                          <BellOff className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-label="DM notifications muted" />
+                        ) : conversation.unreadCount > 0 ? (
+                          <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-blue-600 px-1.5 font-mono text-[9px] font-bold leading-none text-white">
+                            {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
+                          </span>
+                        ) : null}
                       </span>
                       <span className="mt-0.5 block truncate text-xs text-slate-500">{conversation.lastMessage || "Start the conversation"}</span>
                     </span>
@@ -257,7 +290,27 @@ export default function DirectMessages() {
                   <div><div className="text-sm font-bold">{activeConversation?.participantDisplayName || activeConversation?.participantUsername || "Conversation"}</div><div className="text-[10px] text-slate-500">Private · 1 on 1</div></div>
                 </div>
               </Link>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={!activeConversation || toggleNotifications.isPending}
+                  onClick={() =>
+                    toggleNotifications.mutate(
+                      !activeConversation?.notificationsMuted,
+                    )
+                  }
+                >
+                  {activeConversation?.notificationsMuted ? (
+                    <Bell className="mr-1.5 h-4 w-4" />
+                  ) : (
+                    <BellOff className="mr-1.5 h-4 w-4" />
+                  )}
+                  {activeConversation?.notificationsMuted
+                    ? "Unmute Chat"
+                    : "Mute Chat"}
+                </Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => setShowPickDialog(true)}><TicketCheck className="mr-1.5 h-4 w-4" />Send Pick</Button>
                 <Button type="button" size="sm" variant="outline" onClick={() => setShowCardDialog(true)}><Layers3 className="mr-1.5 h-4 w-4" />Daily Card</Button>
               </div>

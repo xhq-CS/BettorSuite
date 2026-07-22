@@ -1,4 +1,5 @@
 import {
+  boolean,
   pgTable,
   serial,
   integer,
@@ -54,6 +55,7 @@ export const conversationParticipantsTable = pgTable(
     userId: integer("user_id")
       .references(() => usersTable.id)
       .notNull(),
+    notificationsMuted: boolean("notifications_muted").default(false).notNull(),
     lastReadAt: timestamp("last_read_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

@@ -54,7 +54,7 @@ export function Sidebar() {
                 <span className="font-display font-medium">{label}</span>
                 {showMessageBadge ? (
                   <span
-                    className="ml-auto inline-flex min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 py-0.5 font-mono text-[9px] font-bold text-white shadow-sm"
+                    className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 font-mono text-[9px] font-bold leading-none text-white shadow-sm"
                     aria-label={`${notifications.count} unread message notifications`}
                   >
                     {notifications.count > 99 ? "99+" : notifications.count}

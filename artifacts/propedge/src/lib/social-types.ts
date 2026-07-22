@@ -69,6 +69,7 @@ export interface Conversation {
   participantAvatarUrl: string | null;
   lastMessage: string | null;
   lastMessageAt: string | null;
+  notificationsMuted: boolean;
   unreadCount: number;
 }
 

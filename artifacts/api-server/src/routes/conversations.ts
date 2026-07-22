@@ -54,6 +54,7 @@ conversationsRouter.get("/", async (req, res) => {
   const mine = await db
     .select({
       conversationId: conversationParticipantsTable.conversationId,
+      notificationsMuted: conversationParticipantsTable.notificationsMuted,
       lastReadAt: conversationParticipantsTable.lastReadAt,
     })
     .from(conversationParticipantsTable)
@@ -61,7 +62,7 @@ conversationsRouter.get("/", async (req, res) => {
   if (!mine.length) return res.json([]);
 
   const conversations = await Promise.all(
-    mine.map(async ({ conversationId, lastReadAt }) => {
+    mine.map(async ({ conversationId, notificationsMuted, lastReadAt }) => {
       const [[other], [lastMessage], [unread]] = await Promise.all([
         db
           .select({
@@ -114,6 +115,7 @@ conversationsRouter.get("/", async (req, res) => {
               : lastMessage.content
           : null,
         lastMessageAt: lastMessage?.createdAt.toISOString() ?? null,
+        notificationsMuted: Boolean(notificationsMuted),
         unreadCount: unread?.count ?? 0,
       };
     }),
@@ -125,6 +127,20 @@ conversationsRouter.get("/", async (req, res) => {
         String(b.lastMessageAt ?? "").localeCompare(String(a.lastMessageAt ?? "")),
       ),
   );
+});
+
+conversationsRouter.patch("/:id/notifications", async (req, res) => {
+  const conversationId = Number(req.params.id);
+  const userId = currentUserId(req);
+  const notificationsMuted = req.body.muted === true;
+  const membership = await participant(conversationId, userId);
+  if (!Number.isInteger(conversationId) || !membership)
+    return void res.status(404).json({ error: "Conversation not found" });
+  await db
+    .update(conversationParticipantsTable)
+    .set({ notificationsMuted, lastReadAt: sql`now()` })
+    .where(eq(conversationParticipantsTable.id, membership.id));
+  return res.json({ notificationsMuted });
 });
 
 conversationsRouter.post("/", async (req, res) => {

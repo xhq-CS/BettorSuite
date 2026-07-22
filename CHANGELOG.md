@@ -12,7 +12,6 @@ All notable BettorStats releases are documented here. The project follows
 
 ### Fixed
 
-- Migrated the official administrator identity from `@andy_admin` to `@admin` while preserving its account data.
 - Normalized PostgreSQL SSL verification so successful Vercel requests no longer appear as runtime errors.
 - Corrected shared modal positioning and mobile width so confirmation forms stay fully visible.
 

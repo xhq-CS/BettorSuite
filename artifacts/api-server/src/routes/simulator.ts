@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { simulatorWalletsTable, simulatorBetsTable } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { and, desc, eq, gte, sql } from "drizzle-orm";
 import {
   ResetSimulatorWalletBody,
   CreateSimulatorBetBody,
@@ -11,17 +11,46 @@ import type { AuthRequest } from "../middleware/auth";
 
 export const simulatorRouter = Router();
 
+type ParlayLeg = { description: string; odds: number; sport: string; betType: string };
+
+function normalizeParlayLegs(value: unknown): ParlayLeg[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new Error("Parlay legs must be a list");
+  if (value.length === 0) return [];
+  if (value.length < 2 || value.length > 20) throw new Error("A parlay requires 2 to 20 legs");
+  return value.map((raw, index) => {
+    const leg = raw as Partial<ParlayLeg>;
+    const description = String(leg.description ?? "").trim();
+    const odds = Number(leg.odds);
+    const sport = String(leg.sport ?? "").trim();
+    const betType = String(leg.betType ?? "").trim();
+    if (!description || description.length > 160 || !Number.isFinite(odds) || odds === 0 || !sport || !betType) {
+      throw new Error(`Leg ${index + 1} needs a description, sport, type, and valid odds`);
+    }
+    return { description, odds, sport, betType };
+  });
+}
+
+function calcParlayOdds(legs: ParlayLeg[]): number {
+  const decimal = legs.reduce((combined, leg) => combined * (leg.odds > 0 ? 1 + leg.odds / 100 : 1 + 100 / Math.abs(leg.odds)), 1);
+  return Math.round(decimal >= 2 ? (decimal - 1) * 100 : -100 / (decimal - 1));
+}
+
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
 
-function calcPayout(wager: number, odds: number): number {
-  if (odds > 0) {
-    return wager + wager * (odds / 100);
-  } else {
-    return wager + wager * (100 / Math.abs(odds));
-  }
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function calcPayout(wager: number, odds: number, profitBoostPercent = 0): number {
+  const baseProfit = odds > 0
+    ? wager * (odds / 100)
+    : wager * (100 / Math.abs(odds));
+  return roundMoney(wager + baseProfit * (1 + profitBoostPercent / 100));
 }
 
 type BetStatus = "pending" | "won" | "lost" | "push";
+class InsufficientSimulatorBalanceError extends Error {}
 type BetFinancials = { balanceDelta: number; profitDelta: number; wins: number; losses: number; actualPayout: number | null };
 
 function betFinancials(status: BetStatus, wager: number, potentialPayout: number): BetFinancials {
@@ -89,6 +118,8 @@ function formatSimBet(b: typeof simulatorBetsTable.$inferSelect) {
     betType: b.betType,
     wager: Number(b.wager),
     odds: Number(b.odds),
+    parlayLegs: b.parlayLegs,
+    profitBoostPercent: Number(b.profitBoostPercent),
     potentialPayout: Number(b.potentialPayout),
     actualPayout: b.actualPayout !== null ? Number(b.actualPayout) : null,
     status: b.status,
@@ -221,40 +252,61 @@ simulatorRouter.post("/bets", async (req, res) => {
   const wallet = await getOrCreateWallet(currentUserId(req));
 
   const wager = body.wager;
-  const balance = Number(wallet.balance);
-
-  if (wager > balance) {
-    return void res.status(400).json({ error: "Insufficient balance" });
+  let parlayLegs: ParlayLeg[];
+  try { parlayLegs = normalizeParlayLegs(body.parlayLegs); }
+  catch (error) { return void res.status(400).json({ error: error instanceof Error ? error.message : "Invalid parlay" }); }
+  const isParlay = body.betType === "parlay" || parlayLegs.length > 0;
+  if (isParlay && parlayLegs.length < 2) return void res.status(400).json({ error: "A parlay requires at least two legs" });
+  const odds = body.odds;
+  const profitBoostPercent = body.profitBoostPercent ?? 0;
+  if (!body.description.trim() || !Number.isFinite(wager) || wager <= 0 || !Number.isFinite(odds) || odds === 0 || !Number.isFinite(profitBoostPercent) || profitBoostPercent < 0 || profitBoostPercent > 1000) {
+    return void res.status(400).json({ error: "Valid description, wager, and odds are required" });
   }
 
-  const potentialPayout = calcPayout(wager, body.odds);
+  const potentialPayout = calcPayout(wager, odds, profitBoostPercent);
+  try {
+    const bet = await db.transaction(async (tx) => {
+      const [debited] = await tx
+        .update(simulatorWalletsTable)
+        .set({
+          balance: sql`${simulatorWalletsTable.balance} - ${wager}`,
+          totalBets: sql`${simulatorWalletsTable.totalBets} + 1`,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(simulatorWalletsTable.userId, currentUserId(req)),
+            gte(simulatorWalletsTable.balance, String(wager)),
+          ),
+        )
+        .returning({ balance: simulatorWalletsTable.balance });
+      if (!debited) throw new InsufficientSimulatorBalanceError();
 
-  // Deduct wager from wallet
-  await db
-    .update(simulatorWalletsTable)
-    .set({
-      balance: String(balance - wager),
-      totalBets: wallet.totalBets + 1,
-      updatedAt: new Date(),
-    })
-    .where(eq(simulatorWalletsTable.userId, currentUserId(req)));
-
-  const [bet] = await db
-    .insert(simulatorBetsTable)
-    .values({
-      userId: currentUserId(req),
-      description: body.description,
-      betType: body.betType,
-      wager: String(wager),
-      odds: String(body.odds),
-      potentialPayout: String(potentialPayout),
-      status: "pending",
-      sport: body.sport ?? null,
-      playerName: body.playerName ?? null,
-    })
-    .returning();
-
-  res.status(201).json(formatSimBet(bet));
+      const [created] = await tx
+        .insert(simulatorBetsTable)
+        .values({
+          userId: currentUserId(req),
+          description: isParlay ? (body.description.trim() || `${parlayLegs.length}-Leg Parlay`) : body.description.trim(),
+          betType: isParlay ? "parlay" : body.betType,
+          wager: String(wager),
+          odds: String(odds),
+          parlayLegs,
+          profitBoostPercent: String(profitBoostPercent),
+          potentialPayout: String(potentialPayout),
+          status: "pending",
+          sport: isParlay ? "Multiple" : (body.sport ?? null),
+          playerName: body.playerName ?? null,
+        })
+        .returning();
+      return created;
+    });
+    return res.status(201).json(formatSimBet(bet));
+  } catch (error) {
+    if (error instanceof InsufficientSimulatorBalanceError) {
+      return void res.status(400).json({ error: "Wager exceeds your virtual bankroll" });
+    }
+    throw error;
+  }
 });
 
 // PATCH /simulator/bets/:id - edit details and/or change settlement status
@@ -277,15 +329,22 @@ simulatorRouter.patch("/bets/:id", async (req, res) => {
   const betType = req.body.betType === undefined ? bet.betType : String(req.body.betType).trim();
   const sport = req.body.sport === undefined ? bet.sport : String(req.body.sport).trim();
   const wager = req.body.wager === undefined ? Number(bet.wager) : Number(req.body.wager);
-  const odds = req.body.odds === undefined ? Number(bet.odds) : Number(req.body.odds);
+  let parlayLegs: ParlayLeg[];
+  try { parlayLegs = req.body.parlayLegs === undefined ? bet.parlayLegs : normalizeParlayLegs(req.body.parlayLegs); }
+  catch (error) { return void res.status(400).json({ error: error instanceof Error ? error.message : "Invalid parlay" }); }
+  const isParlay = betType === "parlay" || parlayLegs.length > 0;
+  if (isParlay && parlayLegs.length < 2) return void res.status(400).json({ error: "A parlay requires at least two legs" });
+  if (!isParlay) parlayLegs = [];
+  const odds = isParlay ? calcParlayOdds(parlayLegs) : (req.body.odds === undefined ? Number(bet.odds) : Number(req.body.odds));
+  const profitBoostPercent = req.body.profitBoostPercent === undefined ? Number(bet.profitBoostPercent) : Number(req.body.profitBoostPercent);
   const status = (requestedStatus ?? bet.status) as BetStatus;
-  if (!description || !betType || !Number.isFinite(wager) || wager <= 0 || !Number.isFinite(odds) || odds === 0) {
+  if (!description || !betType || !Number.isFinite(wager) || wager <= 0 || !Number.isFinite(odds) || odds === 0 || !Number.isFinite(profitBoostPercent) || profitBoostPercent < 0 || profitBoostPercent > 1000) {
     return void res.status(400).json({ error: "Description, bet type, positive wager, and non-zero odds are required" });
   }
 
   const wallet = await getOrCreateWallet(currentUserId(req));
   const oldFinancials = betFinancials(bet.status as BetStatus, Number(bet.wager), Number(bet.potentialPayout));
-  const potentialPayout = calcPayout(wager, odds);
+  const potentialPayout = calcPayout(wager, odds, profitBoostPercent);
   const nextFinancials = betFinancials(status, wager, potentialPayout);
   const newBalance = Number(wallet.balance) - oldFinancials.balanceDelta + nextFinancials.balanceDelta;
   if (newBalance < 0) return void res.status(400).json({ error: "Insufficient balance for this change" });
@@ -305,10 +364,12 @@ simulatorRouter.patch("/bets/:id", async (req, res) => {
     .update(simulatorBetsTable)
     .set({
       description,
-      betType,
-      sport: sport || null,
+      betType: isParlay ? "parlay" : betType,
+      sport: isParlay ? "Multiple" : (sport || null),
       wager: String(wager),
       odds: String(odds),
+      parlayLegs,
+      profitBoostPercent: String(profitBoostPercent),
       potentialPayout: String(potentialPayout),
       status,
       actualPayout: nextFinancials.actualPayout === null ? null : String(nextFinancials.actualPayout),

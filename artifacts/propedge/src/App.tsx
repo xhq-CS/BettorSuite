@@ -11,6 +11,7 @@ const BetTracker = lazy(() => import('@/pages/BetTracker'));
 const Simulator = lazy(() => import('@/pages/Simulator'));
 const Community = lazy(() => import('@/pages/Community'));
 const Leaderboard = lazy(() => import('@/pages/Leaderboard'));
+const DirectMessages = lazy(() => import('@/pages/DirectMessages'));
 const GroupDetail = lazy(() => import('@/pages/GroupDetail'));
 const AuthPage = lazy(() => import('@/pages/Auth'));
 const AdminHome = lazy(() => import('@/pages/Admin'));
@@ -33,6 +34,7 @@ function Router() {
         <Route path="/community"           component={Community}    />
         <Route path="/groups"              component={Community}    />
         <Route path="/leaderboard"         component={Leaderboard}  />
+        <Route path="/messages"            component={DirectMessages} />
         <Route path="/profile/me"          component={MyProfile}    />
         <Route path="/profile/:id"         component={UserProfile}  />
         <Route                             component={NotFound}     />

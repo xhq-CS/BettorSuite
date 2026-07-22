@@ -1,7 +1,13 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable, followsTable } from "@workspace/db";
-import { eq, and, ilike, ne } from "drizzle-orm";
+import {
+  betsTable,
+  dailyCardsTable,
+  followsTable,
+  publicBetRevisionsTable,
+  usersTable,
+} from "@workspace/db";
+import { eq, and, desc, ilike, ne, or } from "drizzle-orm";
 import { sql } from "drizzle-orm";
 import {
   GetUserParams,
@@ -13,11 +19,61 @@ import {
   ListUsersQueryParams,
 } from "@workspace/api-zod";
 import type { AuthRequest } from "../middleware/auth";
+import { trackerBetSnapshot } from "../lib/betSnapshots";
+import { getDailyCard } from "../lib/dailyCards";
 
 export const usersRouter = Router();
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
 
-async function formatUser(u: typeof usersTable.$inferSelect, viewerId: number) {
+async function publicStats(userId: number) {
+  const rows = await db.select().from(betsTable).where(eq(betsTable.userId, userId));
+  const settled = rows.filter((bet) => ["won", "lost", "push"].includes(bet.status));
+  const wins = settled.filter((bet) => bet.status === "won").length;
+  const losses = settled.filter((bet) => bet.status === "lost").length;
+  const pushes = settled.filter((bet) => bet.status === "push").length;
+  const totalWagered = settled.reduce((sum, bet) => sum + Number(bet.wager), 0);
+  const resultProfit = (bet: typeof betsTable.$inferSelect) => {
+    if (bet.status === "won")
+      return Number(bet.actualPayout ?? bet.potentialPayout) - Number(bet.wager);
+    if (bet.status === "lost") return -Number(bet.wager);
+    return 0;
+  };
+  const totalProfit = settled.reduce((sum, bet) => sum + resultProfit(bet), 0);
+  const profitByDay = new Map<string, number>();
+  settled.forEach((bet) => {
+    const day = (bet.settledAt ?? bet.createdAt).toISOString().slice(0, 10);
+    profitByDay.set(day, (profitByDay.get(day) ?? 0) + resultProfit(bet));
+  });
+  const weekStart = new Date();
+  weekStart.setUTCHours(0, 0, 0, 0);
+  const daysSinceMonday = (weekStart.getUTCDay() + 6) % 7;
+  weekStart.setUTCDate(weekStart.getUTCDate() - daysSinceMonday);
+  const streak = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(weekStart);
+    day.setUTCDate(weekStart.getUTCDate() + index);
+    const date = day.toISOString().slice(0, 10);
+    const profit =
+      Math.round(((profitByDay.get(date) ?? 0) + Number.EPSILON) * 100) / 100;
+    return { date, profit, profitable: profit > 0 };
+  });
+  return {
+    totalBets: rows.length,
+    settledBets: settled.length,
+    wins,
+    losses,
+    pushes,
+    winRate: wins + losses > 0 ? wins / (wins + losses) : 0,
+    roi: totalWagered > 0 ? totalProfit / totalWagered : 0,
+    totalProfit,
+    streak,
+  };
+}
+
+async function formatUser(
+  u: typeof usersTable.$inferSelect,
+  viewerId: number,
+  includeStats = false,
+) {
   const [{ count: followersCount }] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(followsTable)
@@ -47,6 +103,7 @@ async function formatUser(u: typeof usersTable.$inferSelect, viewerId: number) {
     followersCount: followersCount ?? 0,
     followingCount: followingCount ?? 0,
     isFollowing,
+    ...(includeStats ? { stats: await publicStats(u.id) } : {}),
     createdAt: u.createdAt.toISOString(),
   };
 }
@@ -54,13 +111,20 @@ async function formatUser(u: typeof usersTable.$inferSelect, viewerId: number) {
 // GET /users
 usersRouter.get("/", async (req, res) => {
   const query = ListUsersQueryParams.parse(req.query);
+  const search = query.search?.trim();
   const rows = await db
     .select()
     .from(usersTable)
     .where(
-      query.search
-        ? ilike(usersTable.username, `%${query.search}%`)
-        : ne(usersTable.id, currentUserId(req))
+      search
+        ? and(
+            ne(usersTable.id, currentUserId(req)),
+            or(
+              ilike(usersTable.username, `%${search}%`),
+              ilike(usersTable.displayName, `%${search}%`),
+            ),
+          )
+        : ne(usersTable.id, currentUserId(req)),
     )
     .limit(30);
 
@@ -76,17 +140,30 @@ usersRouter.get("/me", async (req, res) => {
     .where(eq(usersTable.id, currentUserId(req)));
 
   if (!user) return void res.status(404).json({ error: "User not found" });
-  return res.json(await formatUser(user, currentUserId(req)));
+  return res.json(await formatUser(user, currentUserId(req), true));
 });
 
 // PATCH /users/me
 usersRouter.patch("/me", async (req, res) => {
   const body = UpdateMeBody.parse(req.body);
+  if (body.displayName !== undefined && body.displayName.trim().length > 50)
+    return void res.status(400).json({ error: "Display name cannot exceed 50 characters" });
+  if (body.bio !== undefined && body.bio.trim().length > 240)
+    return void res.status(400).json({ error: "Bio cannot exceed 240 characters" });
+  if (body.favoriteSport !== undefined && body.favoriteSport.trim().length > 40)
+    return void res.status(400).json({ error: "Favorite sport cannot exceed 40 characters" });
+  if (body.avatarUrl !== undefined) {
+    const avatar = body.avatarUrl.trim();
+    const validDataImage = /^data:image\/(jpeg|png|webp);base64,/i.test(avatar) && avatar.length <= 900_000;
+    const validRemoteImage = /^https:\/\//i.test(avatar) && avatar.length <= 2048;
+    if (avatar && !validDataImage && !validRemoteImage)
+      return void res.status(400).json({ error: "Choose a JPG, PNG, or WebP profile image" });
+  }
   const updates: Partial<typeof usersTable.$inferInsert> = {};
-  if (body.displayName !== undefined) updates.displayName = body.displayName;
-  if (body.bio !== undefined) updates.bio = body.bio;
-  if (body.avatarUrl !== undefined) updates.avatarUrl = body.avatarUrl;
-  if (body.favoriteSport !== undefined) updates.favoriteSport = body.favoriteSport;
+  if (body.displayName !== undefined) updates.displayName = body.displayName.trim() || null;
+  if (body.bio !== undefined) updates.bio = body.bio.trim() || null;
+  if (body.avatarUrl !== undefined) updates.avatarUrl = body.avatarUrl.trim() || null;
+  if (body.favoriteSport !== undefined) updates.favoriteSport = body.favoriteSport.trim() || null;
 
   const [user] = await db
     .update(usersTable)
@@ -95,7 +172,54 @@ usersRouter.patch("/me", async (req, res) => {
     .returning();
 
   if (!user) return void res.status(404).json({ error: "User not found" });
-  return res.json(await formatUser(user, currentUserId(req)));
+  return res.json(await formatUser(user, currentUserId(req), true));
+});
+
+// GET /users/:id/picks - active public tracker picks with edit history
+usersRouter.get("/:id/picks", async (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isInteger(userId) || userId <= 0)
+    return void res.status(400).json({ error: "Invalid bettor" });
+  const [current, revisions] = await Promise.all([
+    db.select().from(betsTable).where(eq(betsTable.userId, userId)).orderBy(desc(betsTable.createdAt)),
+    db.select().from(publicBetRevisionsTable).where(eq(publicBetRevisionsTable.userId, userId)).orderBy(desc(publicBetRevisionsTable.createdAt)),
+  ]);
+  const revisionsByBet = new Map<number, typeof revisions>();
+  for (const revision of revisions) {
+    const list = revisionsByBet.get(revision.sourceBetId) ?? [];
+    list.push(revision);
+    revisionsByBet.set(revision.sourceBetId, list);
+  }
+  const livePicks = current.map((bet) => ({
+    id: `bet-${bet.id}`,
+    sourceBetId: bet.id,
+    edited: (revisionsByBet.get(bet.id) ?? []).some((item) => item.action === "edited"),
+    updatedAt: bet.updatedAt.toISOString(),
+    snapshot: trackerBetSnapshot(bet, bet.updatedAt),
+    revisions: (revisionsByBet.get(bet.id) ?? [])
+      .filter((item) => item.action === "edited")
+      .map((item) => ({
+        id: item.id,
+        action: item.action,
+        snapshot: item.snapshot,
+        createdAt: item.createdAt.toISOString(),
+      })),
+  }));
+  return res.json(livePicks.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)));
+});
+
+usersRouter.get("/:id/daily-cards", async (req, res) => {
+  const userId = Number(req.params.id);
+  if (!Number.isInteger(userId) || userId <= 0)
+    return void res.status(400).json({ error: "Invalid bettor" });
+  const rows = await db
+    .select({ id: dailyCardsTable.id })
+    .from(dailyCardsTable)
+    .where(eq(dailyCardsTable.userId, userId))
+    .orderBy(desc(dailyCardsTable.createdAt))
+    .limit(50);
+  const cards = await Promise.all(rows.map((row) => getDailyCard(row.id)));
+  return res.json(cards.filter(Boolean));
 });
 
 // GET /users/:id
@@ -107,7 +231,7 @@ usersRouter.get("/:id", async (req, res) => {
     .where(eq(usersTable.id, id));
 
   if (!user) return void res.status(404).json({ error: "User not found" });
-  return res.json(await formatUser(user, currentUserId(req)));
+  return res.json(await formatUser(user, currentUserId(req), true));
 });
 
 // POST /users/:id/follow

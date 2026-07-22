@@ -6,17 +6,74 @@ export const leaderboardRouter = Router();
 
 leaderboardRouter.get("/", async (_req, res) => {
   const users = await db.select().from(usersTable).limit(100);
-  const entries = (await Promise.all(users.map(async (user) => {
-    const bets = await db.select().from(betsTable).where(eq(betsTable.userId, user.id));
-    const settled = bets.filter((bet) => ["won", "lost", "push"].includes(bet.status));
-    if (!settled.length) return null;
-    const wins = settled.filter((bet) => bet.status === "won").length;
-    const totalWagered = bets.reduce((sum, bet) => sum + Number(bet.wager), 0);
-    const totalReturned = bets.reduce((sum, bet) => sum + Number(bet.actualPayout ?? 0), 0);
-    const totalProfit = totalReturned - totalWagered;
-    return { userId:user.id, username:user.username, avatarUrl:user.avatarUrl ?? null, totalBets:bets.length, wins, winRate:wins/settled.length, totalProfit, roi:totalWagered ? totalProfit/totalWagered : 0, rank:0 };
-  }))).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-  entries.sort((a,b) => b.roi - a.roi || b.winRate - a.winRate);
-  entries.forEach((entry,index) => { entry.rank=index+1; });
+  const entries = (
+    await Promise.all(
+      users.map(async (user) => {
+        const bets = await db
+          .select()
+          .from(betsTable)
+          .where(eq(betsTable.userId, user.id));
+        const settled = bets.filter((bet) =>
+          ["won", "lost", "push"].includes(bet.status),
+        );
+        if (!settled.length) return null;
+        const wins = settled.filter((bet) => bet.status === "won").length;
+        const totalWagered = settled.reduce(
+          (sum, bet) => sum + Number(bet.wager),
+          0,
+        );
+        const resultProfit = (bet: typeof betsTable.$inferSelect) =>
+          bet.status === "won"
+            ? Number(bet.actualPayout ?? bet.potentialPayout) -
+              Number(bet.wager)
+            : bet.status === "lost"
+              ? -Number(bet.wager)
+              : 0;
+        const totalProfit = settled.reduce(
+          (sum, bet) => sum + resultProfit(bet),
+          0,
+        );
+        const profitByDay = new Map<string, number>();
+        settled.forEach((bet) => {
+          const day = (bet.settledAt ?? bet.createdAt)
+            .toISOString()
+            .slice(0, 10);
+          profitByDay.set(day, (profitByDay.get(day) ?? 0) + resultProfit(bet));
+        });
+        const weekStart = new Date();
+        weekStart.setUTCHours(0, 0, 0, 0);
+        const daysSinceMonday = (weekStart.getUTCDay() + 6) % 7;
+        weekStart.setUTCDate(weekStart.getUTCDate() - daysSinceMonday);
+        const streak = Array.from({ length: 7 }, (_, index) => {
+          const day = new Date(weekStart);
+          day.setUTCDate(weekStart.getUTCDate() + index);
+          const date = day.toISOString().slice(0, 10);
+          const profit =
+            Math.round(((profitByDay.get(date) ?? 0) + Number.EPSILON) * 100) /
+            100;
+          return { date, profit, profitable: profit > 0 };
+        });
+        return {
+          userId: user.id,
+          username: user.username,
+          avatarUrl: user.avatarUrl ?? null,
+          totalBets: settled.length,
+          wins,
+          winRate: wins / settled.length,
+          totalProfit,
+          roi: totalWagered ? totalProfit / totalWagered : 0,
+          streak,
+          rank: 0,
+        };
+      }),
+    )
+  ).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+  entries.sort(
+    (a, b) =>
+      b.totalProfit - a.totalProfit || b.roi - a.roi || b.winRate - a.winRate,
+  );
+  entries.forEach((entry, index) => {
+    entry.rank = index + 1;
+  });
   return res.json(entries);
 });

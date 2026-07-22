@@ -6,9 +6,20 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BetUpdateStatus } from './betUpdateStatus';
+import type { ParlayLeg } from './parlayLeg';
 
 export interface BetUpdate {
   status?: BetUpdateStatus;
   actualPayout?: number;
+  /**
+     * @minimum 0
+     * @maximum 1000
+     */
+  profitBoostPercent?: number;
+  /**
+     * @minItems 2
+     * @maxItems 20
+     */
+  parlayLegs?: ParlayLeg[];
   notes?: string;
 }

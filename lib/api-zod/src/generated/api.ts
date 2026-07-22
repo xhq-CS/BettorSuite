@@ -200,6 +200,10 @@ export const ListBetsQueryParams = zod.object({
   "status": zod.enum(['pending', 'won', 'lost', 'push', 'void']).optional()
 })
 
+export const listBetsResponseParlayLegsItemDescriptionMax = 160;
+
+
+
 export const ListBetsResponseItem = zod.object({
   "id": zod.number(),
   "userId": zod.number(),
@@ -208,6 +212,13 @@ export const ListBetsResponseItem = zod.object({
   "sportsbook": zod.string().nullish(),
   "wager": zod.number(),
   "odds": zod.number(),
+  "parlayLegs": zod.array(zod.object({
+  "description": zod.string().min(1).max(listBetsResponseParlayLegsItemDescriptionMax),
+  "odds": zod.number(),
+  "sport": zod.string(),
+  "betType": zod.string()
+})).optional(),
+  "profitBoostPercent": zod.number().optional(),
   "potentialPayout": zod.number().optional(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push', 'void']),
@@ -223,16 +234,37 @@ export const ListBetsResponse = zod.array(ListBetsResponseItem)
 /**
  * @summary Log a new bet
  */
+export const createBetBodyParlayLegsItemDescriptionMax = 160;
+
+export const createBetBodyParlayLegsMin = 2;
+export const createBetBodyParlayLegsMax = 20;
+
+export const createBetBodyProfitBoostPercentMin = 0;
+export const createBetBodyProfitBoostPercentMax = 1000;
+
+
+
 export const CreateBetBody = zod.object({
   "description": zod.string(),
   "betType": zod.string(),
   "sportsbook": zod.string().optional(),
   "wager": zod.number(),
   "odds": zod.number(),
+  "parlayLegs": zod.array(zod.object({
+  "description": zod.string().min(1).max(createBetBodyParlayLegsItemDescriptionMax),
+  "odds": zod.number(),
+  "sport": zod.string(),
+  "betType": zod.string()
+})).min(createBetBodyParlayLegsMin).max(createBetBodyParlayLegsMax).optional(),
+  "profitBoostPercent": zod.number().min(createBetBodyProfitBoostPercentMin).max(createBetBodyProfitBoostPercentMax).optional(),
   "sport": zod.string().optional(),
   "playerName": zod.string().optional(),
   "notes": zod.string().optional()
 })
+
+export const createBetResponseParlayLegsItemDescriptionMax = 160;
+
+
 
 export const CreateBetResponse = zod.object({
   "id": zod.number(),
@@ -242,6 +274,13 @@ export const CreateBetResponse = zod.object({
   "sportsbook": zod.string().nullish(),
   "wager": zod.number(),
   "odds": zod.number(),
+  "parlayLegs": zod.array(zod.object({
+  "description": zod.string().min(1).max(createBetResponseParlayLegsItemDescriptionMax),
+  "odds": zod.number(),
+  "sport": zod.string(),
+  "betType": zod.string()
+})).optional(),
+  "profitBoostPercent": zod.number().optional(),
   "potentialPayout": zod.number().optional(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push', 'void']),
@@ -275,11 +314,32 @@ export const UpdateBetParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const updateBetBodyProfitBoostPercentMin = 0;
+export const updateBetBodyProfitBoostPercentMax = 1000;
+
+export const updateBetBodyParlayLegsItemDescriptionMax = 160;
+
+export const updateBetBodyParlayLegsMin = 2;
+export const updateBetBodyParlayLegsMax = 20;
+
+
+
 export const UpdateBetBody = zod.object({
   "status": zod.enum(['pending', 'won', 'lost', 'push', 'void']).optional(),
   "actualPayout": zod.number().optional(),
+  "profitBoostPercent": zod.number().min(updateBetBodyProfitBoostPercentMin).max(updateBetBodyProfitBoostPercentMax).optional(),
+  "parlayLegs": zod.array(zod.object({
+  "description": zod.string().min(1).max(updateBetBodyParlayLegsItemDescriptionMax),
+  "odds": zod.number(),
+  "sport": zod.string(),
+  "betType": zod.string()
+})).min(updateBetBodyParlayLegsMin).max(updateBetBodyParlayLegsMax).optional(),
   "notes": zod.string().optional()
 })
+
+export const updateBetResponseParlayLegsItemDescriptionMax = 160;
+
+
 
 export const UpdateBetResponse = zod.object({
   "id": zod.number(),
@@ -289,6 +349,13 @@ export const UpdateBetResponse = zod.object({
   "sportsbook": zod.string().nullish(),
   "wager": zod.number(),
   "odds": zod.number(),
+  "parlayLegs": zod.array(zod.object({
+  "description": zod.string().min(1).max(updateBetResponseParlayLegsItemDescriptionMax),
+  "odds": zod.number(),
+  "sport": zod.string(),
+  "betType": zod.string()
+})).optional(),
+  "profitBoostPercent": zod.number().optional(),
   "potentialPayout": zod.number().optional(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push', 'void']),
@@ -355,6 +422,10 @@ export const ResetSimulatorWalletResponse = zod.object({
 /**
  * @summary List virtual bets
  */
+export const listSimulatorBetsResponseParlayLegsItemDescriptionMax = 160;
+
+
+
 export const ListSimulatorBetsResponseItem = zod.object({
   "id": zod.number(),
   "userId": zod.number(),
@@ -362,6 +433,13 @@ export const ListSimulatorBetsResponseItem = zod.object({
   "betType": zod.string(),
   "wager": zod.number(),
   "odds": zod.number(),
+  "parlayLegs": zod.array(zod.object({
+  "description": zod.string().min(1).max(listSimulatorBetsResponseParlayLegsItemDescriptionMax),
+  "odds": zod.number(),
+  "sport": zod.string(),
+  "betType": zod.string()
+})).optional(),
+  "profitBoostPercent": zod.number().optional(),
   "potentialPayout": zod.number(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push']),
@@ -375,14 +453,35 @@ export const ListSimulatorBetsResponse = zod.array(ListSimulatorBetsResponseItem
 /**
  * @summary Place a virtual bet
  */
+export const createSimulatorBetBodyParlayLegsItemDescriptionMax = 160;
+
+export const createSimulatorBetBodyParlayLegsMin = 2;
+export const createSimulatorBetBodyParlayLegsMax = 20;
+
+export const createSimulatorBetBodyProfitBoostPercentMin = 0;
+export const createSimulatorBetBodyProfitBoostPercentMax = 1000;
+
+
+
 export const CreateSimulatorBetBody = zod.object({
   "description": zod.string(),
   "betType": zod.string(),
   "wager": zod.number(),
   "odds": zod.number(),
+  "parlayLegs": zod.array(zod.object({
+  "description": zod.string().min(1).max(createSimulatorBetBodyParlayLegsItemDescriptionMax),
+  "odds": zod.number(),
+  "sport": zod.string(),
+  "betType": zod.string()
+})).min(createSimulatorBetBodyParlayLegsMin).max(createSimulatorBetBodyParlayLegsMax).optional(),
+  "profitBoostPercent": zod.number().min(createSimulatorBetBodyProfitBoostPercentMin).max(createSimulatorBetBodyProfitBoostPercentMax).optional(),
   "sport": zod.string().optional(),
   "playerName": zod.string().optional()
 })
+
+export const createSimulatorBetResponseParlayLegsItemDescriptionMax = 160;
+
+
 
 export const CreateSimulatorBetResponse = zod.object({
   "id": zod.number(),
@@ -391,6 +490,13 @@ export const CreateSimulatorBetResponse = zod.object({
   "betType": zod.string(),
   "wager": zod.number(),
   "odds": zod.number(),
+  "parlayLegs": zod.array(zod.object({
+  "description": zod.string().min(1).max(createSimulatorBetResponseParlayLegsItemDescriptionMax),
+  "odds": zod.number(),
+  "sport": zod.string(),
+  "betType": zod.string()
+})).optional(),
+  "profitBoostPercent": zod.number().optional(),
   "potentialPayout": zod.number(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push']),
@@ -411,6 +517,10 @@ export const SettleSimulatorBetBody = zod.object({
   "status": zod.enum(['won', 'lost', 'push'])
 })
 
+export const settleSimulatorBetResponseParlayLegsItemDescriptionMax = 160;
+
+
+
 export const SettleSimulatorBetResponse = zod.object({
   "id": zod.number(),
   "userId": zod.number(),
@@ -418,6 +528,13 @@ export const SettleSimulatorBetResponse = zod.object({
   "betType": zod.string(),
   "wager": zod.number(),
   "odds": zod.number(),
+  "parlayLegs": zod.array(zod.object({
+  "description": zod.string().min(1).max(settleSimulatorBetResponseParlayLegsItemDescriptionMax),
+  "odds": zod.number(),
+  "sport": zod.string(),
+  "betType": zod.string()
+})).optional(),
+  "profitBoostPercent": zod.number().optional(),
   "potentialPayout": zod.number(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push']),
@@ -747,6 +864,11 @@ export const SendMessageResponse = zod.object({
 /**
  * @summary Top bettors by win rate and profit
  */
+export const getLeaderboardResponseStreakMin = 7;
+export const getLeaderboardResponseStreakMax = 7;
+
+
+
 export const GetLeaderboardResponseItem = zod.object({
   "userId": zod.number(),
   "username": zod.string(),
@@ -755,7 +877,12 @@ export const GetLeaderboardResponseItem = zod.object({
   "wins": zod.number(),
   "winRate": zod.number(),
   "totalProfit": zod.number(),
-  "roi": zod.number().optional(),
+  "roi": zod.number(),
+  "streak": zod.array(zod.object({
+  "date": zod.string(),
+  "profit": zod.number(),
+  "profitable": zod.boolean()
+})).min(getLeaderboardResponseStreakMin).max(getLeaderboardResponseStreakMax),
   "rank": zod.number()
 })
 export const GetLeaderboardResponse = zod.array(GetLeaderboardResponseItem)

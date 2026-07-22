@@ -206,7 +206,7 @@ paths:
                 items:
                   $ref: "#/components/schemas/TrendingProp"
 
-  # ── Bet Tracker ──────────────────────────────────────────────────────────
+  # ── Book Keeper ─────────────────────────────────────────────────────────
   /bets:
     get:
       operationId: listBets
@@ -824,6 +824,8 @@ components:
         sportsbook:   { type: ["string", "null"] }
         wager:        { type: number }
         odds:         { type: number }
+        parlayLegs:   { type: array, items: { $ref: "#/components/schemas/ParlayLeg" } }
+        profitBoostPercent: { type: number }
         potentialPayout: { type: number }
         actualPayout: { type: ["number", "null"] }
         status:       { type: string, enum: [pending, won, lost, push, void] }
@@ -842,6 +844,8 @@ components:
         sportsbook:   { type: string }
         wager:        { type: number }
         odds:         { type: number }
+        parlayLegs:   { type: array, minItems: 2, maxItems: 20, items: { $ref: "#/components/schemas/ParlayLeg" } }
+        profitBoostPercent: { type: number, minimum: 0, maximum: 1000 }
         sport:        { type: string }
         playerName:   { type: string }
         notes:        { type: string }
@@ -851,7 +855,18 @@ components:
       properties:
         status:       { type: string, enum: [pending, won, lost, push, void] }
         actualPayout: { type: number }
+        profitBoostPercent: { type: number, minimum: 0, maximum: 1000 }
+        parlayLegs:   { type: array, minItems: 2, maxItems: 20, items: { $ref: "#/components/schemas/ParlayLeg" } }
         notes:        { type: string }
+
+    ParlayLeg:
+      type: object
+      required: [description, odds, sport, betType]
+      properties:
+        description: { type: string, minLength: 1, maxLength: 160 }
+        odds:        { type: number }
+        sport:       { type: string }
+        betType:     { type: string }
 
     BetSummary:
       type: object
@@ -900,6 +915,8 @@ components:
         betType:         { type: string }
         wager:           { type: number }
         odds:            { type: number }
+        parlayLegs:      { type: array, items: { $ref: "#/components/schemas/ParlayLeg" } }
+        profitBoostPercent: { type: number }
         potentialPayout: { type: number }
         actualPayout:    { type: ["number", "null"] }
         status:          { type: string, enum: [pending, won, lost, push] }
@@ -915,6 +932,8 @@ components:
         betType:     { type: string }
         wager:       { type: number }
         odds:        { type: number }
+        parlayLegs:  { type: array, minItems: 2, maxItems: 20, items: { $ref: "#/components/schemas/ParlayLeg" } }
+        profitBoostPercent: { type: number, minimum: 0, maximum: 1000 }
         sport:       { type: string }
         playerName:  { type: string }
 
@@ -1033,7 +1052,7 @@ components:
     # ── Leaderboard ──────────────────────────────────────────────────────
     LeaderboardEntry:
       type: object
-      required: [userId, username, totalBets, wins, winRate, totalProfit, rank]
+      required: [userId, username, totalBets, wins, winRate, totalProfit, roi, streak, rank]
       properties:
         userId:      { type: integer }
         username:    { type: string }
@@ -1043,4 +1062,17 @@ components:
         winRate:     { type: number }
         totalProfit: { type: number }
         roi:         { type: number }
+        streak:
+          type: array
+          minItems: 7
+          maxItems: 7
+          items: { $ref: "#/components/schemas/LeaderboardDay" }
         rank:        { type: integer }
+
+    LeaderboardDay:
+      type: object
+      required: [date, profit, profitable]
+      properties:
+        date:       { type: string }
+        profit:     { type: number }
+        profitable: { type: boolean }

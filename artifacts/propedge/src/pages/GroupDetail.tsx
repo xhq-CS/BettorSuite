@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation, useParams } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Check, Pencil, Send, Trash2, UserMinus, UserPlus, X } from "lucide-react";
+import { ArrowLeft, Check, Layers3, Pencil, Send, Trash2, UserMinus, UserPlus, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageShortcutHint } from "@/components/chat/MessageShortcutHint";
+import { SharedBetCard, type SharedBetSnapshot } from "@/components/shared-bets/SharedBetCard";
+import { TailBetDialog } from "@/components/shared-bets/TailBetDialog";
+import { DailyCardCard } from "@/components/daily-cards/DailyCardCard";
+import { DailyCardDialog } from "@/components/daily-cards/DailyCardDialog";
+import type { DailyCard } from "@/lib/social-types";
 
 type Member = { userId: number; username: string; role: string };
 type Group = { id: number; name: string; description: string | null; isMember: boolean; role: string | null; members: Member[]; invites: { id: number; userId: number; status: string }[] };
-type Message = { id: number; senderId: number; senderUsername: string; content: string; createdAt: string; editedAt: string | null };
+type Message = { id: number; senderId: number; senderUsername: string; content: string; betShare: SharedBetSnapshot | null; dailyCard: DailyCard | null; createdAt: string; editedAt: string | null };
 type User = { id: number; username: string };
 
 export default function GroupDetail() {
@@ -26,6 +31,8 @@ export default function GroupDetail() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [editText, setEditText] = useState("");
+  const [tailBet, setTailBet] = useState<SharedBetSnapshot | null>(null);
+  const [showDailyCard, setShowDailyCard] = useState(false);
 
   const group = useQuery({ queryKey: ["group", groupId], queryFn: () => api<Group>(`/groups/${groupId}`) });
   const messages = useQuery({ queryKey: ["group-messages", groupId], queryFn: () => api<Message[]>(`/groups/${groupId}/messages`), enabled: !!group.data?.isMember, refetchInterval: 3000 });
@@ -44,7 +51,7 @@ export default function GroupDetail() {
 
   return <div className="max-w-6xl mx-auto space-y-4">
     <Button variant="ghost" onClick={() => nav("/groups")}><ArrowLeft className="w-4 h-4 mr-2" />All groups</Button>
-    <div><h1 className="text-3xl font-display font-bold">{g.name}</h1><p className="text-muted-foreground mt-1">{g.description}</p></div>
+    <div className="flex items-start justify-between gap-4"><div><h1 className="text-3xl font-display font-bold">{g.name}</h1><p className="text-muted-foreground mt-1">{g.description}</p></div>{g.isMember && <Button type="button" variant="outline" onClick={() => setShowDailyCard(true)}><Layers3 className="mr-2 h-4 w-4 text-blue-600" />Post Daily Card</Button>}</div>
     {!g.isMember ? <Card><CardContent className="p-8 text-center"><p className="mb-4">Join this group to see and send messages.</p><Button onClick={() => action.mutate({ path: `/groups/${groupId}/join` })}>Join group</Button></CardContent></Card> :
       <div className="grid lg:grid-cols-[1fr_300px] gap-4">
         <Card className="min-h-[560px] flex flex-col">
@@ -54,16 +61,17 @@ export default function GroupDetail() {
               {messages.data?.map(item => {
                 const mine = item.senderId === user?.id;
                 const isEditing = editingId === item.id;
+                const hasAttachment = Boolean(item.betShare || item.dailyCard);
                 const timestamp = new Date(item.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
                 return <div key={item.id} className={`group flex w-full ${mine ? "justify-end" : "justify-start"}`}>
                   <div className={`flex max-w-[82%] flex-col ${mine ? "items-end" : "items-start"}`}>
-                    {!mine && <div className="mb-1 ml-3 text-[11px] font-semibold text-slate-500">@{item.senderUsername}</div>}
+                    {!mine && <button type="button" onClick={() => nav(`/profile/${item.senderId}`)} className="mb-1 ml-3 text-[11px] font-semibold text-slate-500 hover:text-blue-600 hover:underline">@{item.senderUsername}</button>}
                     <div className={`flex items-end gap-1.5 ${mine ? "flex-row-reverse" : ""}`}>
-                      <div className={`min-w-0 px-4 py-2.5 shadow-sm ${isEditing ? "w-[min(520px,72vw)] rounded-2xl border border-slate-200 bg-white text-slate-950" : mine ? "rounded-[20px] rounded-br-md bg-[#0A84FF] text-white" : "rounded-[20px] rounded-bl-md bg-[#E9E9EB] text-slate-950"}`}>
+                      <div className={`min-w-0 shadow-sm ${isEditing ? "w-[min(520px,72vw)] rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-slate-950" : hasAttachment ? "w-[min(600px,80vw)] rounded-2xl border border-slate-200 bg-slate-50 p-2 text-slate-950" : mine ? "rounded-[20px] rounded-br-md bg-[#0A84FF] px-4 py-2.5 text-white" : "rounded-[20px] rounded-bl-md bg-[#E9E9EB] px-4 py-2.5 text-slate-950"}`}>
                         {isEditing ? <div className="space-y-2">
                           <Textarea value={editText} onChange={event => setEditText(event.target.value)} maxLength={2000} rows={3} className="resize-y border-slate-200 bg-white" autoFocus />
                           <div className="flex justify-end gap-2"><Button type="button" size="sm" variant="ghost" onClick={() => setEditingId(null)}><X className="w-4 h-4 mr-1" />Cancel</Button><Button type="button" size="sm" disabled={!editText.trim() || edit.isPending} onClick={() => edit.mutate({ messageId: item.id, content: editText })}><Check className="w-4 h-4 mr-1" />Save</Button></div>
-                        </div> : <p className="whitespace-pre-wrap break-words text-[15px] leading-5">{item.content}</p>}
+                        </div> : <div className="space-y-2.5">{item.content && <p className={`whitespace-pre-wrap break-words text-[15px] leading-5 ${hasAttachment ? "px-2 pt-1" : ""}`}>{item.content}</p>}{item.betShare && <SharedBetCard bet={item.betShare} onTail={setTailBet} />}{item.dailyCard && <DailyCardCard card={item.dailyCard} compact onTail={setTailBet} />}</div>}
                       </div>
                       {mine && !isEditing && (deletingId === item.id ? <div className="mb-0.5 flex items-center gap-1 rounded-full border border-red-100 bg-white px-1.5 py-1 shadow-sm"><span className="ml-1 text-[11px] text-muted-foreground">Delete?</span><Button type="button" size="sm" variant="ghost" className="h-7 rounded-full px-2" onClick={() => setDeletingId(null)}>Cancel</Button><Button type="button" size="sm" variant="destructive" className="h-7 rounded-full px-2" disabled={remove.isPending} onClick={() => remove.mutate(item.id)}>Delete</Button></div> : <div className="mb-0.5 flex gap-0.5 opacity-70 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                         <Button type="button" size="icon" variant="ghost" className="h-7 w-7 rounded-full text-slate-500" aria-label="Edit message" title="Edit message" onClick={() => { setDeletingId(null); setEditingId(item.id); setEditText(item.content); }}><Pencil className="w-3.5 h-3.5" /></Button>
@@ -77,6 +85,7 @@ export default function GroupDetail() {
               {!messages.data?.length && <p className="m-auto text-sm text-muted-foreground">No messages yet. Start the conversation.</p>}
             </div>
             <form onSubmit={event => { event.preventDefault(); submit(); }} className="flex items-end gap-2 border-t pt-4">
+              <Button type="button" size="icon" variant="outline" className="h-10 w-10 shrink-0 rounded-full" aria-label="Post daily card" title="Post daily card" onClick={() => setShowDailyCard(true)}><Layers3 className="h-4 w-4" /></Button>
               <Textarea value={message} onChange={event => setMessage(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} placeholder="Message this group…" maxLength={2000} rows={2} className="max-h-40 min-h-[46px] resize-y rounded-2xl border-slate-300 bg-white px-4 py-3" />
               <Button type="submit" size="icon" className="h-10 w-10 shrink-0 rounded-full bg-[#0A84FF] hover:bg-[#0077ED]" aria-label="Send message" disabled={!message.trim() || send.isPending}><Send className="w-4 h-4" /></Button>
             </form>
@@ -84,9 +93,11 @@ export default function GroupDetail() {
           </CardContent>
         </Card>
         <Card><CardHeader><CardTitle className="text-base">Members</CardTitle></CardHeader><CardContent className="space-y-3">
-          {g.members.map(member => <div key={member.userId} className="flex justify-between items-center text-sm"><span>@{member.username} {member.role === "admin" && <small className="text-primary">Admin</small>}</span>{admin && member.role !== "admin" && <Button size="icon" variant="ghost" aria-label={`Remove @${member.username}`} onClick={() => action.mutate({ path: `/groups/${groupId}/members/${member.userId}`, method: "DELETE" })}><UserMinus className="w-4 h-4" /></Button>}</div>)}
+          {g.members.map(member => <div key={member.userId} className="flex justify-between items-center text-sm"><button type="button" onClick={() => nav(`/profile/${member.userId}`)} className="hover:text-blue-600 hover:underline">@{member.username} {member.role === "admin" && <small className="text-primary">Admin</small>}</button>{admin && member.role !== "admin" && <Button size="icon" variant="ghost" aria-label={`Remove @${member.username}`} onClick={() => action.mutate({ path: `/groups/${groupId}/members/${member.userId}`, method: "DELETE" })}><UserMinus className="w-4 h-4" /></Button>}</div>)}
           {admin && <div className="pt-3 border-t"><Input value={search} onChange={event => setSearch(event.target.value)} placeholder="Find username…" /><div className="mt-2 space-y-2">{users.data?.filter(found => !g.members.some(member => member.userId === found.id)).map(found => { const invited = g.invites?.some(invite => invite.userId === found.id); return <div key={found.id} className="flex justify-between items-center text-sm"><span>@{found.username}</span><div className="flex gap-1"><Button size="sm" variant="outline" disabled={invited} onClick={() => api(`/groups/${groupId}/invite`, { method: "POST", body: JSON.stringify({ userId: found.id }) }).then(refresh)}>{invited ? "Invited" : "Invite"}</Button><Button size="icon" aria-label={`Add @${found.username}`} onClick={() => api(`/groups/${groupId}/members`, { method: "POST", body: JSON.stringify({ userId: found.id }) }).then(refresh)}><UserPlus className="w-4 h-4" /></Button></div></div>; })}</div></div>}
         </CardContent></Card>
       </div>}
+    <TailBetDialog bet={tailBet} onClose={() => setTailBet(null)} />
+    {showDailyCard && <DailyCardDialog destination="group" groupId={groupId} onClose={() => setShowDailyCard(false)} />}
   </div>;
 }

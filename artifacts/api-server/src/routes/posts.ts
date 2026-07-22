@@ -1,10 +1,6 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import {
-  postsTable,
-  postLikesTable,
-  usersTable,
-} from "@workspace/db";
+import { postsTable, postLikesTable, usersTable } from "@workspace/db";
 import { eq, and, desc, sql, lt, inArray } from "drizzle-orm";
 import {
   CreatePostBody,
@@ -14,6 +10,7 @@ import {
   ListPostsQueryParams,
 } from "@workspace/api-zod";
 import type { AuthRequest } from "../middleware/auth";
+import { getDailyCard } from "../lib/dailyCards";
 
 export const postsRouter = Router();
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
@@ -33,12 +30,14 @@ postsRouter.get("/", async (req, res) => {
       content: postsTable.content,
       sport: postsTable.sport,
       playerTag: postsTable.playerTag,
+      betShare: postsTable.betShare,
+      dailyCardId: postsTable.dailyCardId,
       createdAt: postsTable.createdAt,
       editedAt: postsTable.editedAt,
     })
     .from(postsTable)
     .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
-    .where(cursor ? lt(postsTable.id, Number(cursor)) as any : undefined)
+    .where(cursor ? (lt(postsTable.id, Number(cursor)) as any) : undefined)
     .orderBy(desc(postsTable.createdAt))
     .limit(limit + 1);
 
@@ -66,8 +65,8 @@ postsRouter.get("/", async (req, res) => {
           .where(
             and(
               inArray(postLikesTable.postId, postIds),
-              eq(postLikesTable.userId, currentUserId(req))
-            )
+              eq(postLikesTable.userId, currentUserId(req)),
+            ),
           )
       : [];
 
@@ -75,7 +74,7 @@ postsRouter.get("/", async (req, res) => {
   const likedSet = new Set(userLikes.map((l) => l.postId));
 
   res.json({
-    posts: items.map((p) => ({
+    posts: await Promise.all(items.map(async (p) => ({
       id: p.id,
       userId: p.userId,
       username: p.username ?? "Unknown",
@@ -85,9 +84,11 @@ postsRouter.get("/", async (req, res) => {
       liked: likedSet.has(p.id),
       sport: p.sport ?? null,
       playerTag: p.playerTag ?? null,
+      betShare: p.betShare ?? null,
+      dailyCard: await getDailyCard(p.dailyCardId),
       createdAt: p.createdAt.toISOString(),
       editedAt: p.editedAt?.toISOString() ?? null,
-    })),
+    }))),
     hasMore,
     nextCursor: hasMore ? (items[items.length - 1]?.id ?? null) : null,
   });
@@ -121,6 +122,8 @@ postsRouter.post("/", async (req, res) => {
     liked: false,
     sport: post.sport,
     playerTag: post.playerTag,
+    betShare: post.betShare ?? null,
+    dailyCard: null,
     createdAt: post.createdAt.toISOString(),
     editedAt: post.editedAt?.toISOString() ?? null,
   });
@@ -138,6 +141,8 @@ postsRouter.get("/:id", async (req, res) => {
       content: postsTable.content,
       sport: postsTable.sport,
       playerTag: postsTable.playerTag,
+      betShare: postsTable.betShare,
+      dailyCardId: postsTable.dailyCardId,
       createdAt: postsTable.createdAt,
       editedAt: postsTable.editedAt,
     })
@@ -155,7 +160,12 @@ postsRouter.get("/:id", async (req, res) => {
   const [userLike] = await db
     .select()
     .from(postLikesTable)
-    .where(and(eq(postLikesTable.postId, id), eq(postLikesTable.userId, currentUserId(req))));
+    .where(
+      and(
+        eq(postLikesTable.postId, id),
+        eq(postLikesTable.userId, currentUserId(req)),
+      ),
+    );
 
   res.json({
     id: post.id,
@@ -167,6 +177,8 @@ postsRouter.get("/:id", async (req, res) => {
     liked: !!userLike,
     sport: post.sport,
     playerTag: post.playerTag,
+    betShare: post.betShare ?? null,
+    dailyCard: await getDailyCard(post.dailyCardId),
     createdAt: post.createdAt.toISOString(),
     editedAt: post.editedAt?.toISOString() ?? null,
   });
@@ -176,25 +188,48 @@ postsRouter.get("/:id", async (req, res) => {
 postsRouter.patch("/:id", async (req, res) => {
   const id = Number(req.params.id);
   const content = String(req.body.content ?? "").trim();
-  if (!Number.isInteger(id) || id <= 0) return void res.status(400).json({ error: "Invalid post" });
+  if (!Number.isInteger(id) || id <= 0)
+    return void res.status(400).json({ error: "Invalid post" });
   if (!content || content.length > 2000) {
-    return void res.status(400).json({ error: "Message must be 1-2000 characters" });
+    return void res
+      .status(400)
+      .json({ error: "Message must be 1-2000 characters" });
   }
 
-  const [existing] = await db.select({ userId: postsTable.userId }).from(postsTable).where(eq(postsTable.id, id));
+  const [existing] = await db
+    .select({ userId: postsTable.userId })
+    .from(postsTable)
+    .where(eq(postsTable.id, id));
   if (!existing) return void res.status(404).json({ error: "Post not found" });
-  if (existing.userId !== currentUserId(req)) return void res.status(403).json({ error: "You can only edit your own message" });
+  if (existing.userId !== currentUserId(req))
+    return void res
+      .status(403)
+      .json({ error: "You can only edit your own message" });
 
-  const [post] = await db.update(postsTable).set({ content, editedAt: new Date() }).where(eq(postsTable.id, id)).returning();
-  return res.json({ ...post, createdAt: post.createdAt.toISOString(), editedAt: post.editedAt?.toISOString() ?? null });
+  const [post] = await db
+    .update(postsTable)
+    .set({ content, editedAt: new Date() })
+    .where(eq(postsTable.id, id))
+    .returning();
+  return res.json({
+    ...post,
+    createdAt: post.createdAt.toISOString(),
+    editedAt: post.editedAt?.toISOString() ?? null,
+  });
 });
 
 // DELETE /posts/:id
 postsRouter.delete("/:id", async (req, res) => {
   const { id } = DeletePostParams.parse({ id: Number(req.params.id) });
-  const [existing] = await db.select({ userId: postsTable.userId }).from(postsTable).where(eq(postsTable.id, id));
+  const [existing] = await db
+    .select({ userId: postsTable.userId })
+    .from(postsTable)
+    .where(eq(postsTable.id, id));
   if (!existing) return void res.status(404).json({ error: "Post not found" });
-  if (existing.userId !== currentUserId(req)) return void res.status(403).json({ error: "You can only delete your own message" });
+  if (existing.userId !== currentUserId(req))
+    return void res
+      .status(403)
+      .json({ error: "You can only delete your own message" });
   await db.delete(postLikesTable).where(eq(postLikesTable.postId, id));
   await db.delete(postsTable).where(eq(postsTable.id, id));
   res.status(204).send();
@@ -206,12 +241,19 @@ postsRouter.post("/:id/like", async (req, res) => {
   const [existing] = await db
     .select()
     .from(postLikesTable)
-    .where(and(eq(postLikesTable.postId, id), eq(postLikesTable.userId, currentUserId(req))));
+    .where(
+      and(
+        eq(postLikesTable.postId, id),
+        eq(postLikesTable.userId, currentUserId(req)),
+      ),
+    );
 
   if (existing) {
     await db.delete(postLikesTable).where(eq(postLikesTable.id, existing.id));
   } else {
-    await db.insert(postLikesTable).values({ postId: id, userId: currentUserId(req) });
+    await db
+      .insert(postLikesTable)
+      .values({ postId: id, userId: currentUserId(req) });
   }
 
   const [likeCount] = await db

@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, numeric, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, numeric, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { usersTable } from "./users";
@@ -25,6 +25,8 @@ export const simulatorBetsTable = pgTable("simulator_bets", {
   betType: text("bet_type").notNull(),
   wager: numeric("wager").notNull(),
   odds: numeric("odds").notNull(),
+  parlayLegs: jsonb("parlay_legs").$type<Array<{ description: string; odds: number; sport: string; betType: string }>>().notNull().default([]),
+  profitBoostPercent: numeric("profit_boost_percent").notNull().default("0"),
   potentialPayout: numeric("potential_payout").notNull(),
   actualPayout: numeric("actual_payout"),
   status: text("status").notNull().default("pending"), // pending, won, lost, push

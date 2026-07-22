@@ -5,6 +5,7 @@
  * PropEdge API - sports betting stats tracker and community
  * OpenAPI spec version: 0.1.0
  */
+import type { LeaderboardDay } from './leaderboardDay';
 
 export interface LeaderboardEntry {
   userId: number;
@@ -15,6 +16,11 @@ export interface LeaderboardEntry {
   wins: number;
   winRate: number;
   totalProfit: number;
-  roi?: number;
+  roi: number;
+  /**
+     * @minItems 7
+     * @maxItems 7
+     */
+  streak: LeaderboardDay[];
   rank: number;
 }

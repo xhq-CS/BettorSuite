@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BetStatus } from './betStatus';
+import type { ParlayLeg } from './parlayLeg';
 
 export interface Bet {
   id: number;
@@ -16,6 +17,8 @@ export interface Bet {
   sportsbook?: string | null;
   wager: number;
   odds: number;
+  parlayLegs?: ParlayLeg[];
+  profitBoostPercent?: number;
   potentialPayout?: number;
   /** @nullable */
   actualPayout?: number | null;

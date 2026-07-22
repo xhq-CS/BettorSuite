@@ -155,6 +155,17 @@ export const BetStatus = {
   void: 'void',
 } as const;
 
+export interface ParlayLeg {
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  description: string;
+  odds: number;
+  sport: string;
+  betType: string;
+}
+
 export interface Bet {
   id: number;
   userId: number;
@@ -164,6 +175,8 @@ export interface Bet {
   sportsbook?: string | null;
   wager: number;
   odds: number;
+  parlayLegs?: ParlayLeg[];
+  profitBoostPercent?: number;
   potentialPayout?: number;
   /** @nullable */
   actualPayout?: number | null;
@@ -185,6 +198,16 @@ export interface BetInput {
   sportsbook?: string;
   wager: number;
   odds: number;
+  /**
+     * @minItems 2
+     * @maxItems 20
+     */
+  parlayLegs?: ParlayLeg[];
+  /**
+     * @minimum 0
+     * @maximum 1000
+     */
+  profitBoostPercent?: number;
   sport?: string;
   playerName?: string;
   notes?: string;
@@ -204,6 +227,16 @@ export const BetUpdateStatus = {
 export interface BetUpdate {
   status?: BetUpdateStatus;
   actualPayout?: number;
+  /**
+     * @minimum 0
+     * @maximum 1000
+     */
+  profitBoostPercent?: number;
+  /**
+     * @minItems 2
+     * @maxItems 20
+     */
+  parlayLegs?: ParlayLeg[];
   notes?: string;
 }
 
@@ -262,6 +295,8 @@ export interface SimulatorBet {
   betType: string;
   wager: number;
   odds: number;
+  parlayLegs?: ParlayLeg[];
+  profitBoostPercent?: number;
   potentialPayout: number;
   /** @nullable */
   actualPayout?: number | null;
@@ -278,6 +313,16 @@ export interface SimulatorBetInput {
   betType: string;
   wager: number;
   odds: number;
+  /**
+     * @minItems 2
+     * @maxItems 20
+     */
+  parlayLegs?: ParlayLeg[];
+  /**
+     * @minimum 0
+     * @maximum 1000
+     */
+  profitBoostPercent?: number;
   sport?: string;
   playerName?: string;
 }
@@ -388,6 +433,12 @@ export interface MessageInput {
   content: string;
 }
 
+export interface LeaderboardDay {
+  date: string;
+  profit: number;
+  profitable: boolean;
+}
+
 export interface LeaderboardEntry {
   userId: number;
   username: string;
@@ -397,7 +448,12 @@ export interface LeaderboardEntry {
   wins: number;
   winRate: number;
   totalProfit: number;
-  roi?: number;
+  roi: number;
+  /**
+     * @minItems 7
+     * @maxItems 7
+     */
+  streak: LeaderboardDay[];
   rank: number;
 }
 

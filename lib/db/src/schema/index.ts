@@ -2,6 +2,8 @@ export * from "./users";
 export * from "./sports";
 export * from "./bets";
 export * from "./simulator";
+export * from "./sharedBet";
+export * from "./social";
 export * from "./community";
 export * from "./groups";
 export * from "./cache";

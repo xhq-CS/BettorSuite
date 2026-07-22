@@ -1,3 +1,7 @@
-import { useParams } from "wouter"; import { useQuery } from "@tanstack/react-query"; import { api } from "@/lib/api"; import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-type Profile={id:number;username:string;displayName:string|null;bio:string|null;favoriteSport:string|null;createdAt:string};
-export default function UserProfile(){const {id}=useParams<{id:string}>();const profile=useQuery({queryKey:["profile",id],queryFn:()=>api<Profile>(`/users/${id}`)});if(profile.isLoading)return <p>Loading profile…</p>;if(!profile.data)return <p>Profile not found.</p>;const p=profile.data;return <div className="max-w-3xl mx-auto"><Card><CardHeader><CardTitle className="text-2xl">{p.displayName||p.username}</CardTitle><p className="text-sm text-muted-foreground">@{p.username}</p></CardHeader><CardContent><p>{p.bio||"No bio yet."}</p>{p.favoriteSport&&<p className="text-sm text-muted-foreground mt-5">Favorite sport: {p.favoriteSport}</p>}</CardContent></Card></div>}
+import { useParams } from "wouter";
+import { ProfileView } from "@/components/profile/ProfileView";
+
+export default function UserProfile() {
+  const { id } = useParams<{ id: string }>();
+  return <ProfileView userId={Number(id)} />;
+}

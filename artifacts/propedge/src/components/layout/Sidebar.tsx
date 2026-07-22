@@ -2,13 +2,14 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import {
-  Target, Gamepad2, Users, Trophy, UserRound, LogOut,
+  Target, Gamepad2, Users, Trophy, UserRound, LogOut, MessagesSquare,
 } from "lucide-react";
 
 const navItems = [
-  { href: "/tracker",    label: "Bet Tracker", icon: Target          },
+  { href: "/tracker",    label: "Book Keeper", icon: Target          },
   { href: "/mock-betting", label: "Mock Betting", icon: Gamepad2      },
   { href: "/community",    label: "Community",    icon: Users         },
+  { href: "/messages",     label: "Messages",     icon: MessagesSquare },
   { href: "/leaderboard",  label: "Leaderboard",  icon: Trophy        },
   { href: "/profile/me", label: "Profile",     icon: UserRound       },
 ];

@@ -5,6 +5,7 @@
  * PropEdge API - sports betting stats tracker and community
  * OpenAPI spec version: 0.1.0
  */
+import type { ParlayLeg } from './parlayLeg';
 import type { SimulatorBetStatus } from './simulatorBetStatus';
 
 export interface SimulatorBet {
@@ -14,6 +15,8 @@ export interface SimulatorBet {
   betType: string;
   wager: number;
   odds: number;
+  parlayLegs?: ParlayLeg[];
+  profitBoostPercent?: number;
   potentialPayout: number;
   /** @nullable */
   actualPayout?: number | null;

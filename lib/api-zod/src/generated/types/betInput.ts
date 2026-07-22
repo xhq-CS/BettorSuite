@@ -5,6 +5,7 @@
  * PropEdge API - sports betting stats tracker and community
  * OpenAPI spec version: 0.1.0
  */
+import type { ParlayLeg } from './parlayLeg';
 
 export interface BetInput {
   description: string;
@@ -12,6 +13,16 @@ export interface BetInput {
   sportsbook?: string;
   wager: number;
   odds: number;
+  /**
+     * @minItems 2
+     * @maxItems 20
+     */
+  parlayLegs?: ParlayLeg[];
+  /**
+     * @minimum 0
+     * @maximum 1000
+     */
+  profitBoostPercent?: number;
   sport?: string;
   playerName?: string;
   notes?: string;

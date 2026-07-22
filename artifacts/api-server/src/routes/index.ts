@@ -11,6 +11,9 @@ import { trendingRouter } from "./trending";
 import { groupsRouter } from "./groups";
 import { livestatsRouter } from "./livestats";
 import { authRouter } from "./auth";
+import { sharesRouter } from "./shares";
+import { conversationsRouter } from "./conversations";
+import { dailyCardsRouter } from "./dailyCards";
 import { requireAuth } from "../middleware/auth";
 
 const router = Router();
@@ -27,6 +30,9 @@ router.use("/leaderboard", leaderboardRouter);
 router.use("/stats", trendingRouter);
 router.use("/users", usersRouter);
 router.use("/groups", groupsRouter);
+router.use("/shares", sharesRouter);
+router.use("/conversations", conversationsRouter);
+router.use("/daily-cards", dailyCardsRouter);
 router.use("/livestats", livestatsRouter);
 
 export default router;

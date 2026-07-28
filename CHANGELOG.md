@@ -3,6 +3,14 @@
 All notable BettorSuite releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [2.5.2] - 2026-07-28
+
+### Fixed
+
+- Replaced the scaled raster trophy with a crisp native SVG so the winner seal remains sharp at every responsive size.
+- Centered the trophy inside the gold medallion and removed the surrounding sparkles.
+- Removed the obsolete winner-trophy bitmap from the production bundle.
+
 ## [2.5.1] - 2026-07-28
 
 ### Improved
@@ -198,6 +206,7 @@ The first deployable BettorStats release replaced manual betting records with on
 - Community foundations with groups, group chat, the public War Room, and leaderboard.
 - Admin login and production-ready Vercel routing, API bundling, security headers, and database configuration.
 
+[2.5.2]: https://github.com/xhq-CS/BettorSuite/compare/v2.5.1...v2.5.2
 [2.5.1]: https://github.com/xhq-CS/BettorSuite/compare/v2.5.0...v2.5.1
 [2.5.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.3.0...v2.4.0

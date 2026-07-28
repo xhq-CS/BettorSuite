@@ -3,6 +3,25 @@
 All notable BettorSuite releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [2.5.0] - 2026-07-28
+
+### Added
+
+- User-level Book Keeper access inside the administrator Control Room, including current wallet balance, reconciliation history, and tracked-bet review.
+- Exact-balance admin reconciliations that create immutable wallet-history and moderation-audit records without consuming a member's personal monthly reconciliation allowance.
+- Admin discovery and removal of shared bet slips and Daily Cards across profiles, the War Room, private groups, and Direct Messages.
+- A shared, site-matched date picker for placing and configuring Book Keeper and Mock Betting entries.
+- A transparent, overlapping winner-trophy accent for successful desktop and mobile Bet History entries.
+
+### Changed
+
+- Winning status pills now remain clean and text-only while the trophy acts as a separate celebratory history accent.
+- Daily Card removal from the Control Room clearly removes the owned card and every shared copy, while individual share removal affects only that selected post.
+
+### Security
+
+- All new moderation endpoints remain admin-only, require a reason, verify that content belongs to the selected account, use transactional deletion or reconciliation, and write to the existing audit trail.
+
 ## [2.4.0] - 2026-07-28
 
 ### Added
@@ -171,6 +190,8 @@ The first deployable BettorStats release replaced manual betting records with on
 - Community foundations with groups, group chat, the public War Room, and leaderboard.
 - Admin login and production-ready Vercel routing, API bundling, security headers, and database configuration.
 
+[2.5.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.4.0...v2.5.0
+[2.4.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.1.1...v2.2.0
 [2.1.1]: https://github.com/xhq-CS/BettorSuite/compare/v2.1.0...v2.1.1

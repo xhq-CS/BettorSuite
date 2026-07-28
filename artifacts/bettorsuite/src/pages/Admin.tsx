@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ShieldCheck, Search, UserRound, ReceiptText, RotateCcw, Trash2, Save, History } from "lucide-react";
+import { ShieldCheck, Search, UserRound, ReceiptText, RotateCcw, Trash2, Save, History, WalletCards, Share2, Layers3 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
@@ -19,7 +19,25 @@ type AdminBet = {
   id: number; description: string; sport: string | null; status: string;
   odds: string | number; wager: number; potentialPayout: number; betDate: string;
 };
-type UserDetail = { user: AdminUser & { bio?: string | null; favoriteSport?: string | null }; bets: AdminBet[] };
+type WalletHistoryItem = {
+  id: number; type: string; amount: number; balanceAfter: number;
+  reason: string | null; betId: number | null; createdAt: string;
+};
+type SharedContentItem = {
+  id: number;
+  source: "war-room" | "group" | "direct-message" | "daily-card";
+  contentType: "bet-slip" | "daily-card" | "daily-card-share";
+  title: string;
+  destination: string;
+  detail: string;
+  createdAt: string;
+};
+type UserDetail = {
+  user: AdminUser & { bio?: string | null; favoriteSport?: string | null };
+  bets: AdminBet[];
+  walletHistory: WalletHistoryItem[];
+  sharedContent: SharedContentItem[];
+};
 type Overview = { users: number; bets: number; pendingBets: number; recent: Array<{ id: number; action: string; reason: string; targetUserId: number; createdAt: string }> };
 
 export default function AdminHome() {
@@ -31,6 +49,7 @@ export default function AdminHome() {
   const [detail, setDetail] = useState<UserDetail | null>(null);
   const [reason, setReason] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [reconciliationBalance, setReconciliationBalance] = useState("");
   const [busy, setBusy] = useState(false);
 
   const refresh = async () => {
@@ -44,7 +63,10 @@ export default function AdminHome() {
   useEffect(() => { void refresh().catch((error) => toast.error(error.message)); }, [search]);
   useEffect(() => {
     if (!selectedId) return setDetail(null);
-    void api<UserDetail>(`/admin/users/${selectedId}`).then(setDetail).catch((error) => toast.error(error.message));
+    void api<UserDetail>(`/admin/users/${selectedId}`).then((next) => {
+      setDetail(next);
+      setReconciliationBalance(next.user.trackerBankroll.toFixed(2));
+    }).catch((error) => toast.error(error.message));
   }, [selectedId]);
 
   const selected = useMemo(() => users.find((item) => item.id === selectedId), [users, selectedId]);
@@ -57,7 +79,11 @@ export default function AdminHome() {
       toast.success(success);
       setReason(""); setConfirmation("");
       await refresh();
-      if (selectedId) setDetail(await api<UserDetail>(`/admin/users/${selectedId}`));
+      if (selectedId) {
+        const next = await api<UserDetail>(`/admin/users/${selectedId}`);
+        setDetail(next);
+        setReconciliationBalance(next.user.trackerBankroll.toFixed(2));
+      }
     } catch (error) { toast.error(error instanceof Error ? error.message : "Action failed"); }
     finally { setBusy(false); }
   };
@@ -102,6 +128,53 @@ export default function AdminHome() {
           <div><Label>Moderation reason</Label><Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Required for changes" /></div>
           <div className="md:col-span-2 flex justify-end"><Button disabled={busy || reason.length < 3} onClick={saveProfile}><Save className="mr-2 h-4 w-4" />Save audited changes</Button></div>
         </CardContent></Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base"><WalletCards className="h-4 w-4 text-primary" />Book Keeper access</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto] md:items-end">
+              <div className="rounded-xl border bg-slate-50 px-4 py-3">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Current sportsbook wallet</p>
+                <p className="mt-1 font-mono text-2xl font-bold text-slate-900">${detail.user.trackerBankroll.toFixed(2)}</p>
+              </div>
+              <div>
+                <Label htmlFor="admin-reconciliation-balance">Reconcile to exact balance</Label>
+                <div className="relative mt-1.5">
+                  <span className="absolute left-3 top-2.5 text-sm text-muted-foreground">$</span>
+                  <Input id="admin-reconciliation-balance" className="pl-7 font-mono" inputMode="decimal" value={reconciliationBalance} onChange={(event) => setReconciliationBalance(event.target.value)} />
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                disabled={busy || reason.length < 3 || !Number.isFinite(Number(reconciliationBalance)) || Number(reconciliationBalance) < 0 || Number(reconciliationBalance) === detail.user.trackerBankroll}
+                onClick={() => {
+                  if (!window.confirm(`Reconcile @${detail.user.username}'s Book Keeper wallet to $${Number(reconciliationBalance).toFixed(2)}?`)) return;
+                  void run(() => api(`/admin/users/${detail.user.id}/wallet/reconcile`, {
+                    method: "POST",
+                    body: JSON.stringify({ balance: Number(reconciliationBalance), reason }),
+                  }), "Book Keeper wallet reconciled");
+                }}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />Reconcile wallet
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">This creates an admin reconciliation in wallet history and does not consume the member&apos;s monthly reconciliation allowance.</p>
+            <div className="overflow-hidden rounded-xl border">
+              <div className="grid grid-cols-[120px_1fr_110px] border-b bg-slate-50 px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <span>Action</span><span>Reason</span><span className="text-right">Balance after</span>
+              </div>
+              <div className="max-h-52 divide-y overflow-y-auto">
+                {detail.walletHistory.length === 0 ? <p className="p-4 text-center text-sm text-muted-foreground">No wallet history.</p> : detail.walletHistory.map((entry) =>
+                  <div key={entry.id} className="grid grid-cols-[120px_1fr_110px] items-center px-3 py-2.5 text-xs">
+                    <div><p className="font-semibold capitalize">{entry.type.replaceAll("_", " ")}</p><p className="text-[10px] text-muted-foreground">{new Date(entry.createdAt).toLocaleDateString()}</p></div>
+                    <p className="truncate pr-3 text-muted-foreground" title={entry.reason ?? ""}>{entry.reason || "—"}</p>
+                    <p className="text-right font-mono font-semibold">${entry.balanceAfter.toFixed(2)}</p>
+                  </div>)}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
         <Card><CardHeader className="pb-3"><CardTitle className="flex items-center gap-2 text-base"><ReceiptText className="h-4 w-4" />Book Keeper history</CardTitle></CardHeader><CardContent className="space-y-2">
           {detail.bets.length === 0 ? <p className="py-5 text-center text-sm text-muted-foreground">No tracked bets.</p> : detail.bets.map((bet) =>
             <div key={bet.id} className="grid items-center gap-2 rounded-lg border p-3 md:grid-cols-[1fr_90px_90px_130px_auto]">
@@ -113,6 +186,43 @@ export default function AdminHome() {
               <Button size="icon" variant="outline" disabled={busy || reason.length < 3} onClick={() => run(() => api(`/admin/users/${detail.user.id}/bets/${bet.id}`, { method: "DELETE", body: JSON.stringify({ reason }) }), "Bet deleted and wallet reversed")}><Trash2 className="h-4 w-4 text-destructive" /></Button>
             </div>)}
         </CardContent></Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base"><Share2 className="h-4 w-4" />Posted slips &amp; Daily Cards</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {detail.sharedContent.length === 0 ? <p className="py-5 text-center text-sm text-muted-foreground">No shared bet slips or Daily Cards.</p> : detail.sharedContent.map((item) =>
+              <div key={`${item.source}-${item.id}`} className="flex items-center gap-3 rounded-xl border p-3">
+                <div className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${item.contentType === "bet-slip" ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-700"}`}>
+                  {item.contentType === "bet-slip" ? <ReceiptText className="h-4 w-4" /> : <Layers3 className="h-4 w-4" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-sm font-semibold">{item.title}</p>
+                    <Badge variant="outline" className="text-[9px] uppercase">{item.contentType.replaceAll("-", " ")}</Badge>
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">{item.destination} · {item.detail || "No caption"} · {new Date(item.createdAt).toLocaleString()}</p>
+                </div>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="shrink-0"
+                  disabled={busy || reason.length < 3}
+                  aria-label={`Delete ${item.title}`}
+                  onClick={() => {
+                    const scope = item.source === "daily-card" ? "This also removes every shared copy of the card." : "Only this shared post will be removed.";
+                    if (!window.confirm(`Delete “${item.title}” from ${item.destination}?\n\n${scope}`)) return;
+                    void run(() => api(`/admin/users/${detail.user.id}/shared-content/${item.source}/${item.id}`, {
+                      method: "DELETE",
+                      body: JSON.stringify({ reason }),
+                    }), "Shared content removed");
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>)}
+          </CardContent>
+        </Card>
         {detail.user.role !== "admin" && <Card className="border-red-200"><CardHeader className="pb-3"><CardTitle className="text-base text-red-700">Danger zone</CardTitle></CardHeader><CardContent className="grid gap-3 md:grid-cols-2">
           <div className="md:col-span-2"><Label>Type @{detail.user.username} to confirm</Label><Input value={confirmation} onChange={(e) => setConfirmation(e.target.value.replace(/^@/, ""))} /></div>
           <Button variant="outline" className="border-amber-300" disabled={busy || confirmation !== detail.user.username || reason.length < 3} onClick={() => run(() => api(`/admin/users/${detail.user.id}/reset`, { method: "POST", body: JSON.stringify({ confirmation, reason }) }), "Account data reset; login and profile preserved")}><RotateCcw className="mr-2 h-4 w-4" />Reset account data</Button>

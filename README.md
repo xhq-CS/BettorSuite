@@ -4,7 +4,7 @@
 
 BettorSuite is an all-in-one sportsbook journal, mock betting workspace, and social community. It replaces manual paper tracking with private account data, consistent performance analytics, shareable picks, and conversations built around the bets themselves.
 
-**Current version:** `v2.4.0`
+**Current version:** `v2.5.0`
 
 ## What is in v2
 
@@ -17,6 +17,10 @@ BettorSuite is an all-in-one sportsbook journal, mock betting workspace, and soc
 - **Messages** - Send direct messages, picks, parlays, and Daily Cards one-to-one.
 
 ## Release history
+
+### v2.5.0 - Moderation and interface polish
+
+This release expands the administrator Control Room with complete user-level Book Keeper access, exact-balance admin reconciliations, wallet-history review, and audited removal of shared bet slips and Daily Cards from profiles, groups, Direct Messages, and the War Room. It also introduces a consistent BettorSuite date picker across betting forms and a new overlapping winner-trophy treatment for successful Bet History entries.
 
 ### v2.4.0 - Control Room and precision tracking
 
@@ -100,7 +104,7 @@ BettorSuite uses semantic versioning:
 - `MINOR` for backward-compatible features.
 - `PATCH` for backward-compatible fixes and polish.
 
-The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.4.0`.
+The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.5.0`.
 
 ## Privacy
 

@@ -56,7 +56,9 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { BetCalendar } from "@/components/BetCalendar";
+import { BetDatePicker } from "@/components/BetDatePicker";
 import { ProfitBoostControl } from "@/components/ProfitBoostControl";
+import { WinnerTrophyAccent } from "@/components/WinnerTrophyAccent";
 import { ProfitBoostBadge } from "@/components/ProfitBoostBadge";
 import {
   ParlayLegEditor,
@@ -963,7 +965,10 @@ export default function Simulator() {
                                 : undefined
                             }
                           >
-                            <TableCell className="pl-4 text-slate-600 text-xs font-medium whitespace-nowrap">
+                            <TableCell className="relative overflow-visible pl-4 text-slate-600 text-xs font-medium whitespace-nowrap">
+                              {bet.status === "won" && (
+                                <WinnerTrophyAccent className="-left-2 -top-3 h-11 w-11 rotate-[-8deg]" />
+                              )}
                               {format(new Date(bet.betDate ?? bet.createdAt), "MMM d")}
                             </TableCell>
                             <TableCell className="pr-2">
@@ -1029,7 +1034,7 @@ export default function Simulator() {
                                   variant="success"
                                   className="min-w-[64px] justify-center text-sm px-2.5 py-0.5"
                                 >
-                                  <Trophy className="mr-1 h-3.5 w-3.5 fill-amber-300 text-amber-600" /> Won
+                                  Won
                                 </Badge>
                               )}
                               {bet.status === "lost" && (
@@ -1142,8 +1147,11 @@ export default function Simulator() {
                       return (
                         <div
                           key={bet.id}
-                          className={`p-4 space-y-3 ${Number(bet.profitBoostPercent) > 0 ? "bg-amber-50/70" : ""}`}
+                          className={`relative p-4 space-y-3 ${Number(bet.profitBoostPercent) > 0 ? "bg-amber-50/70" : ""}`}
                         >
+                          {bet.status === "won" && (
+                            <WinnerTrophyAccent className="-right-2 -top-3 h-16 w-16 rotate-[7deg]" />
+                          )}
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <div className="font-display font-semibold text-slate-900">
@@ -1171,7 +1179,7 @@ export default function Simulator() {
                                 variant="success"
                                 className="min-w-[64px] justify-center"
                               >
-                                <Trophy className="mr-1 h-3.5 w-3.5 fill-amber-300 text-amber-600" /> Won
+                                Won
                               </Badge>
                             ) : bet.status === "lost" ? (
                               <Badge
@@ -1434,7 +1442,7 @@ export default function Simulator() {
             <span className="text-muted-foreground">Odds improved from </span><span className="font-mono">{formatOdds(effectiveOdds)}</span><span className="mx-1">to</span><span className="rounded bg-amber-300 px-1.5 py-0.5 font-mono font-bold text-amber-950">{formatOdds(calculateBoostedOdds(effectiveOdds, Number(profitBoost)))}</span>
           </div>}
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="mb-1.5 block text-xs font-mono uppercase text-muted-foreground">Bet Date</label><Input type="date" value={betDate} onChange={(event) => setBetDate(event.target.value)} /></div>
+            <div><label className="mb-1.5 block text-xs font-mono uppercase text-muted-foreground">Bet Date</label><BetDatePicker value={betDate} onChange={setBetDate} /></div>
             <div><label className="mb-1.5 block text-xs font-mono uppercase text-muted-foreground">Total Payout (optional)</label><Input type="number" min={Number(wager) || 0} step="0.01" placeholder={calculatedPayoutPreview ? calculatedPayoutPreview.toFixed(2) : "Auto"} value={payoutOverride} onChange={(event) => setPayoutOverride(event.target.value)} /></div>
           </div>
           {wager && effectiveOdds !== 0 && (
@@ -1792,7 +1800,7 @@ export default function Simulator() {
             onValueChange={setConfiguredProfitBoost}
           />
           <div className="grid grid-cols-2 gap-3">
-            <div><label className="mb-1.5 block text-sm font-medium text-slate-700">Bet Date</label><Input type="date" value={configuredBetDate} onChange={(event) => setConfiguredBetDate(event.target.value)} /></div>
+            <div><label className="mb-1.5 block text-sm font-medium text-slate-700">Bet Date</label><BetDatePicker value={configuredBetDate} onChange={setConfiguredBetDate} /></div>
             <div><label className="mb-1.5 block text-sm font-medium text-slate-700">Total Payout (optional)</label><Input type="number" min={Number(configuredWager) || 0} step="0.01" value={configuredPayoutOverride} onChange={(event) => setConfiguredPayoutOverride(event.target.value)} placeholder="Use calculated payout" /></div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">

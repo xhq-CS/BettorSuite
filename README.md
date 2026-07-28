@@ -20,7 +20,7 @@ BettorSuite is an all-in-one sportsbook journal, mock betting workspace, and soc
 
 ### v2.5.3 - Clearer bet entry and winner polish
 
-This consolidated interface patch gives bet entry an explicit league and sport dropdown alongside optional custom text. It also replaces the small raster winner artwork with a larger layered gold seal and a crisp, centered native SVG trophy—without sparkles or scaling blur—across desktop and mobile Book Keeper and Mock Betting histories.
+This consolidated interface patch gives bet entry an explicit league and sport dropdown alongside optional custom text. It also replaces the small raster winner artwork with a larger layered gold seal and a crisp, centered native SVG trophy—without sparkles or scaling blur—across desktop and mobile Book Keeper and Mock Betting histories. Message alerts now use a louder, polished two-note chime that is easier to notice without sounding harsh.
 
 ### v2.5.0 - Moderation and interface polish
 

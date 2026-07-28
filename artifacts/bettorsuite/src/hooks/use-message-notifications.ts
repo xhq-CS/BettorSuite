@@ -14,6 +14,54 @@ interface PendingInvite {
   id: number;
 }
 
+let lastNotificationPlayedAt = 0;
+
+function playNotificationTone() {
+  const now = Date.now();
+  if (now - lastNotificationPlayedAt < 500) return;
+
+  const AudioContextClass =
+    window.AudioContext ||
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext })
+      .webkitAudioContext;
+  if (!AudioContextClass) return;
+
+  lastNotificationPlayedAt = now;
+  const context = new AudioContextClass();
+  const compressor = context.createDynamicsCompressor();
+  compressor.threshold.setValueAtTime(-18, context.currentTime);
+  compressor.knee.setValueAtTime(18, context.currentTime);
+  compressor.ratio.setValueAtTime(4, context.currentTime);
+  compressor.attack.setValueAtTime(0.003, context.currentTime);
+  compressor.release.setValueAtTime(0.18, context.currentTime);
+  compressor.connect(context.destination);
+
+  const notes = [
+    { frequency: 659.25, offset: 0, duration: 0.18 },
+    { frequency: 987.77, offset: 0.12, duration: 0.22 },
+  ];
+
+  notes.forEach(({ frequency, offset, duration }, index) => {
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    const startsAt = context.currentTime + offset;
+    const endsAt = startsAt + duration;
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, startsAt);
+    gain.gain.setValueAtTime(0.0001, startsAt);
+    gain.gain.exponentialRampToValueAtTime(0.14, startsAt + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, endsAt);
+    oscillator.connect(gain).connect(compressor);
+    oscillator.start(startsAt);
+    oscillator.stop(endsAt);
+
+    if (index === notes.length - 1) {
+      oscillator.addEventListener("ended", () => void context.close());
+    }
+  });
+}
+
 export function useMessageNotifications() {
   const previousCount = useRef<number | null>(null);
   const conversations = useQuery({
@@ -49,19 +97,7 @@ export function useMessageNotifications() {
   useEffect(() => {
     if (previousCount.current !== null && count > previousCount.current) {
       try {
-        const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-        if (AudioContextClass) {
-          const context = new AudioContextClass();
-          const oscillator = context.createOscillator();
-          const gain = context.createGain();
-          oscillator.frequency.value = 880;
-          gain.gain.setValueAtTime(0.035, context.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.12);
-          oscillator.connect(gain).connect(context.destination);
-          oscillator.start();
-          oscillator.stop(context.currentTime + 0.12);
-          oscillator.addEventListener("ended", () => void context.close());
-        }
+        playNotificationTone();
       } catch {
         // Audio may be blocked until the first user interaction.
       }

@@ -11,6 +11,7 @@ All notable BettorSuite releases are documented here. The project follows
 - Replaced the small winning trophy with a larger, layered gold winner seal while preserving readable bet details across desktop and mobile.
 - Replaced the scaled raster artwork with a crisp, centered native SVG trophy and removed the surrounding sparkles and obsolete bitmap asset.
 - Applied the updated bet-entry and winner treatments consistently to Book Keeper and Mock Betting.
+- Replaced the quiet single-frequency message ping with a louder, compressed two-note notification chime.
 
 ## [2.5.0] - 2026-07-28
 

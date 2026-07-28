@@ -965,9 +965,9 @@ export default function Simulator() {
                                 : undefined
                             }
                           >
-                            <TableCell className="relative overflow-visible pl-4 text-slate-600 text-xs font-medium whitespace-nowrap">
+                            <TableCell className={`relative overflow-visible text-slate-600 text-xs font-medium whitespace-nowrap ${bet.status === "won" ? "pl-[68px]" : "pl-4"}`}>
                               {bet.status === "won" && (
-                                <WinnerTrophyAccent className="-left-2 -top-3 h-11 w-11 rotate-[-8deg]" />
+                                <WinnerTrophyAccent className="left-1 top-1/2 h-[62px] w-[62px] -translate-y-1/2 rotate-[-6deg]" />
                               )}
                               {format(new Date(bet.betDate ?? bet.createdAt), "MMM d")}
                             </TableCell>
@@ -1150,9 +1150,9 @@ export default function Simulator() {
                           className={`relative p-4 space-y-3 ${Number(bet.profitBoostPercent) > 0 ? "bg-amber-50/70" : ""}`}
                         >
                           {bet.status === "won" && (
-                            <WinnerTrophyAccent className="-right-2 -top-3 h-16 w-16 rotate-[7deg]" />
+                            <WinnerTrophyAccent className="-left-3 -top-4 h-[84px] w-[84px] rotate-[-7deg]" />
                           )}
-                          <div className="flex items-start justify-between gap-3">
+                          <div className={`flex items-start justify-between gap-3 ${bet.status === "won" ? "pl-14" : ""}`}>
                             <div>
                               <div className="font-display font-semibold text-slate-900">
                                 {bet.description}

@@ -4,7 +4,7 @@
 
 BettorSuite is an all-in-one sportsbook journal, mock betting workspace, and social community. It replaces manual paper tracking with private account data, consistent performance analytics, shareable picks, and conversations built around the bets themselves.
 
-**Current version:** `v2.5.0`
+**Current version:** `v2.5.1`
 
 ## What is in v2
 
@@ -17,6 +17,10 @@ BettorSuite is an all-in-one sportsbook journal, mock betting workspace, and soc
 - **Messages** - Send direct messages, picks, parlays, and Daily Cards one-to-one.
 
 ## Release history
+
+### v2.5.1 - Winner-seal polish
+
+This visual patch replaces the small winner trophy with a larger, more distinctive BettorSuite winner seal. The new treatment combines a layered gold medallion, inset ring, trophy artwork, depth, and a compact WINNER ribbon while preserving readable bet details across desktop and mobile Book Keeper and Mock Betting histories.
 
 ### v2.5.0 - Moderation and interface polish
 
@@ -104,7 +108,7 @@ BettorSuite uses semantic versioning:
 - `MINOR` for backward-compatible features.
 - `PATCH` for backward-compatible fixes and polish.
 
-The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.5.0`.
+The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.5.1`.
 
 ## Privacy
 

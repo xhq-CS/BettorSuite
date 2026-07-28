@@ -5,6 +5,7 @@
  * BettorSuite API - sportsbook tracker and community
  * OpenAPI spec version: 0.1.0
  */
+import type { BetSummaryRange } from './betSummaryRange';
 
 export interface BetSummary {
   totalBets: number;
@@ -14,5 +15,8 @@ export interface BetSummary {
   winRate: number;
   totalWagered: number;
   totalProfit: number;
+  trackedProfit?: number;
+  baselineAdjustment?: number;
+  range?: BetSummaryRange;
   roi: number;
 }

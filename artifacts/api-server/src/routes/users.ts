@@ -4,6 +4,7 @@ import {
   betsTable,
   dailyCardsTable,
   followsTable,
+  userNicknamesTable,
   publicBetRevisionsTable,
   usersTable,
 } from "@workspace/db";
@@ -21,6 +22,9 @@ import {
 import type { AuthRequest } from "../middleware/auth";
 import { trackerBetSnapshot } from "../lib/betSnapshots";
 import { getDailyCard } from "../lib/dailyCards";
+import { localDateKey } from "../lib/localDates";
+import { purgeAccountData } from "../lib/accountPurge";
+import { verifyPassword } from "../lib/passwords";
 
 export const usersRouter = Router();
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
@@ -41,17 +45,16 @@ async function publicStats(userId: number) {
   const totalProfit = settled.reduce((sum, bet) => sum + resultProfit(bet), 0);
   const profitByDay = new Map<string, number>();
   settled.forEach((bet) => {
-    const day = (bet.settledAt ?? bet.createdAt).toISOString().slice(0, 10);
+    const day = localDateKey(bet.betDate);
     profitByDay.set(day, (profitByDay.get(day) ?? 0) + resultProfit(bet));
   });
-  const weekStart = new Date();
-  weekStart.setUTCHours(0, 0, 0, 0);
-  const daysSinceMonday = (weekStart.getUTCDay() + 6) % 7;
-  weekStart.setUTCDate(weekStart.getUTCDate() - daysSinceMonday);
+  const weekStart = new Date(`${localDateKey(new Date())}T12:00:00`);
+  const daysSinceMonday = (weekStart.getDay() + 6) % 7;
+  weekStart.setDate(weekStart.getDate() - daysSinceMonday);
   const streak = Array.from({ length: 7 }, (_, index) => {
     const day = new Date(weekStart);
-    day.setUTCDate(weekStart.getUTCDate() + index);
-    const date = day.toISOString().slice(0, 10);
+    day.setDate(weekStart.getDate() + index);
+    const date = localDateKey(day);
     const profit =
       Math.round(((profitByDay.get(date) ?? 0) + Number.EPSILON) * 100) / 100;
     return { date, profit, profitable: profit > 0 };
@@ -85,12 +88,20 @@ async function formatUser(
     .where(eq(followsTable.followerId, u.id));
 
   let isFollowing = false;
+  let nickname: string | null = null;
   if (viewerId !== u.id) {
     const [follow] = await db
       .select()
       .from(followsTable)
       .where(and(eq(followsTable.followerId, viewerId), eq(followsTable.followingId, u.id)));
     isFollowing = !!follow;
+    if (isFollowing) {
+      const [saved] = await db.select({ nickname: userNicknamesTable.nickname }).from(userNicknamesTable).where(and(
+        eq(userNicknamesTable.ownerId, viewerId),
+        eq(userNicknamesTable.targetUserId, u.id),
+      ));
+      nickname = saved?.nickname ?? null;
+    }
   }
 
   return {
@@ -103,6 +114,7 @@ async function formatUser(
     followersCount: followersCount ?? 0,
     followingCount: followingCount ?? 0,
     isFollowing,
+    nickname,
     ...(includeStats ? { stats: await publicStats(u.id) } : {}),
     createdAt: u.createdAt.toISOString(),
   };
@@ -173,6 +185,48 @@ usersRouter.patch("/me", async (req, res) => {
 
   if (!user) return void res.status(404).json({ error: "User not found" });
   return res.json(await formatUser(user, currentUserId(req), true));
+});
+
+usersRouter.delete("/me", async (req, res) => {
+  const id = currentUserId(req);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
+  if (!user?.passwordHash || !(await verifyPassword(String(req.body.password ?? ""), user.passwordHash))) {
+    return void res.status(401).json({ error: "Password is incorrect" });
+  }
+  if (String(req.body.confirmation ?? "") !== user.username) {
+    return void res.status(400).json({ error: "Type your username to confirm deletion" });
+  }
+  await purgeAccountData(id, true);
+  res.clearCookie("bettorstats_session", { path: "/" });
+  return res.status(204).send();
+});
+
+usersRouter.put("/:id/nickname", async (req, res) => {
+  const ownerId = currentUserId(req);
+  const targetUserId = Number(req.params.id);
+  const nickname = String(req.body.nickname ?? "").trim();
+  if (!nickname || nickname.length > 40) return void res.status(400).json({ error: "Nickname must be 1-40 characters" });
+  const [follow] = await db.select({ id: followsTable.id }).from(followsTable).where(and(
+    eq(followsTable.followerId, ownerId),
+    eq(followsTable.followingId, targetUserId),
+  ));
+  if (!follow) return void res.status(403).json({ error: "Follow this person before adding a private nickname" });
+  const [existing] = await db.select().from(userNicknamesTable).where(and(
+    eq(userNicknamesTable.ownerId, ownerId),
+    eq(userNicknamesTable.targetUserId, targetUserId),
+  ));
+  const [saved] = existing
+    ? await db.update(userNicknamesTable).set({ nickname, updatedAt: new Date() }).where(eq(userNicknamesTable.id, existing.id)).returning()
+    : await db.insert(userNicknamesTable).values({ ownerId, targetUserId, nickname }).returning();
+  return res.json(saved);
+});
+
+usersRouter.delete("/:id/nickname", async (req, res) => {
+  await db.delete(userNicknamesTable).where(and(
+    eq(userNicknamesTable.ownerId, currentUserId(req)),
+    eq(userNicknamesTable.targetUserId, Number(req.params.id)),
+  ));
+  return res.status(204).send();
 });
 
 // GET /users/:id/picks - active public tracker picks with edit history

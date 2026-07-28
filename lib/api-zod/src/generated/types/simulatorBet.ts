@@ -17,7 +17,10 @@ export interface SimulatorBet {
   odds: number;
   parlayLegs?: ParlayLeg[];
   profitBoostPercent?: number;
+  boostedOdds?: number;
   potentialPayout: number;
+  /** @nullable */
+  payoutOverride?: number | null;
   /** @nullable */
   actualPayout?: number | null;
   status: SimulatorBetStatus;
@@ -26,4 +29,5 @@ export interface SimulatorBet {
   /** @nullable */
   playerName?: string | null;
   createdAt: string;
+  betDate?: string;
 }

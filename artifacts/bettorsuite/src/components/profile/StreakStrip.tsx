@@ -21,8 +21,7 @@ export function StreakStrip({ days }: StreakStripProps) {
       {safeDays.map((day) => {
         const weekday = new Intl.DateTimeFormat("en-US", {
           weekday: "narrow",
-          timeZone: "UTC",
-        }).format(new Date(`${day.date}T00:00:00Z`));
+        }).format(new Date(`${day.date}T12:00:00`));
         const isProfit = day.profit > 0;
         const isLoss = day.profit < 0;
         const resultLabel = isProfit

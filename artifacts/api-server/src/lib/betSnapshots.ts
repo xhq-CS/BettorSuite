@@ -23,7 +23,7 @@ export function trackerBetSnapshot(
       bet.actualPayout == null ? null : Number(bet.actualPayout),
     status: bet.status,
     sport: bet.sport ?? null,
-    placedAt: bet.createdAt.toISOString(),
+    placedAt: bet.betDate.toISOString(),
     sharedAt: sharedAt.toISOString(),
   };
 }
@@ -47,7 +47,7 @@ export function mockBetSnapshot(
       bet.actualPayout == null ? null : Number(bet.actualPayout),
     status: bet.status,
     sport: bet.sport ?? null,
-    placedAt: bet.createdAt.toISOString(),
+    placedAt: bet.betDate.toISOString(),
     sharedAt: sharedAt.toISOString(),
   };
 }

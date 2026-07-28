@@ -15,6 +15,8 @@ import {
 } from "@workspace/api-zod";
 import type { AuthRequest } from "../middleware/auth";
 import { trackerBetSnapshot } from "../lib/betSnapshots";
+import { boostedAmericanOdds, calculateTotalPayout, roundMoney } from "../lib/bettingMath";
+import { parseOptionalBetDate, rangeStart } from "../lib/localDates";
 
 export const betsRouter = Router();
 const MONTHLY_RECONCILIATION_LIMIT = 3;
@@ -42,17 +44,6 @@ function normalizeParlayLegs(value: unknown): ParlayLeg[] {
 function calcParlayOdds(legs: ParlayLeg[]): number {
   const decimal = legs.reduce((combined, leg) => combined * (leg.odds > 0 ? 1 + leg.odds / 100 : 1 + 100 / Math.abs(leg.odds)), 1);
   return Math.round(decimal >= 2 ? (decimal - 1) * 100 : -100 / (decimal - 1));
-}
-
-function calcPayout(wager: number, odds: number, profitBoostPercent = 0): number {
-  const baseProfit = odds > 0
-    ? wager * (odds / 100)
-    : wager * (100 / Math.abs(odds));
-  return roundMoney(wager + baseProfit * (1 + profitBoostPercent / 100));
-}
-
-function roundMoney(value: number) {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 function trackerBalanceDelta(
@@ -93,7 +84,13 @@ async function trackerWalletOverview(userId: number) {
   const { start, resetsAt } = monthWindow();
   const [[user], transactions, [{ betCount }], [{ reconciliationsUsed }]] = await Promise.all([
     db
-      .select({ balance: usersTable.trackerBankroll })
+      .select({
+        balance: usersTable.trackerBankroll,
+        breakEvenEnabled: usersTable.trackerBreakEvenEnabled,
+        breakEvenBalance: usersTable.trackerBreakEvenBalance,
+        breakEvenAdjustment: usersTable.trackerBreakEvenAdjustment,
+        breakEvenSetAt: usersTable.trackerBreakEvenSetAt,
+      })
       .from(usersTable)
       .where(eq(usersTable.id, userId)),
     db
@@ -124,6 +121,10 @@ async function trackerWalletOverview(userId: number) {
   return {
     balance,
     initialized,
+    breakEvenEnabled: user.breakEvenEnabled,
+    breakEvenBalance: user.breakEvenBalance === null ? null : Number(user.breakEvenBalance),
+    breakEvenAdjustment: Number(user.breakEvenAdjustment),
+    breakEvenSetAt: user.breakEvenSetAt?.toISOString() ?? null,
     reconciliationsUsed,
     reconciliationLimit: MONTHLY_RECONCILIATION_LIMIT,
     reconciliationResetsAt: resetsAt.toISOString(),
@@ -231,6 +232,8 @@ function formatBet(b: typeof betsTable.$inferSelect) {
     odds: Number(b.odds),
     parlayLegs: b.parlayLegs,
     profitBoostPercent: Number(b.profitBoostPercent),
+    boostedOdds: boostedAmericanOdds(Number(b.odds), Number(b.profitBoostPercent)),
+    payoutOverride: b.payoutOverride !== null ? Number(b.payoutOverride) : null,
     potentialPayout: Number(b.potentialPayout),
     actualPayout: b.actualPayout !== null ? Number(b.actualPayout) : null,
     status: b.status,
@@ -238,6 +241,7 @@ function formatBet(b: typeof betsTable.$inferSelect) {
     playerName: b.playerName ?? null,
     notes: b.notes ?? null,
     createdAt: b.createdAt.toISOString(),
+    betDate: b.betDate.toISOString(),
     updatedAt: b.updatedAt.toISOString(),
     settledAt: b.settledAt ? b.settledAt.toISOString() : null,
   };
@@ -262,39 +266,74 @@ betsRouter.get("/", async (req, res) => {
 // GET /bets/summary
 betsRouter.get("/summary", async (req, res) => {
   const userId = (req as unknown as AuthRequest).userId;
+  const range = ["today", "week", "month", "all"].includes(String(req.query.range))
+    ? String(req.query.range)
+    : "all";
+  const includeBaseline = req.query.includeBaseline === "true" && range === "all";
   const [rows, [user]] = await Promise.all([
     db.select().from(betsTable).where(eq(betsTable.userId, userId)),
-    db.select({ wageredResetAt: usersTable.trackerWageredResetAt }).from(usersTable).where(eq(usersTable.id, userId)),
+    db.select({
+      wageredResetAt: usersTable.trackerWageredResetAt,
+      breakEvenEnabled: usersTable.trackerBreakEvenEnabled,
+      breakEvenAdjustment: usersTable.trackerBreakEvenAdjustment,
+    }).from(usersTable).where(eq(usersTable.id, userId)),
   ]);
 
-  const settled = rows.filter((b) => ["won", "lost", "push"].includes(b.status));
+  const start = rangeStart(range);
+  const filteredRows = start ? rows.filter((bet) => bet.betDate >= start) : rows;
+  const settled = filteredRows.filter((b) => ["won", "lost", "push"].includes(b.status));
   const wins = settled.filter((b) => b.status === "won").length;
   const losses = settled.filter((b) => b.status === "lost").length;
   const pushes = settled.filter((b) => b.status === "push").length;
   const wageredRows = user?.wageredResetAt
-    ? rows.filter(bet => bet.createdAt > user.wageredResetAt!)
-    : rows;
+    ? filteredRows.filter(bet => bet.betDate > user.wageredResetAt!)
+    : filteredRows;
   const totalWagered = wageredRows.reduce((sum, b) => sum + Number(b.wager), 0);
   const settledWagered = settled.reduce((sum, b) => sum + Number(b.wager), 0);
-  const totalProfit = settled.reduce((sum, b) => {
+  const trackedProfit = settled.reduce((sum, b) => {
     if (b.status === "won") return sum + Number(b.actualPayout ?? b.potentialPayout) - Number(b.wager);
     if (b.status === "lost") return sum - Number(b.wager);
     return sum;
   }, 0);
+  const baselineAdjustment =
+    includeBaseline && user?.breakEvenEnabled ? Number(user.breakEvenAdjustment) : 0;
+  const totalProfit = trackedProfit + baselineAdjustment;
   const decidedBets = wins + losses;
   const winRate = decidedBets > 0 ? wins / decidedBets : 0;
   const roi = settledWagered > 0 ? totalProfit / settledWagered : 0;
 
   res.json({
-    totalBets: rows.length,
+    totalBets: filteredRows.length,
     wins,
     losses,
     pushes,
     winRate,
     totalWagered,
     totalProfit,
+    trackedProfit,
+    baselineAdjustment,
+    range,
     roi,
   });
+});
+
+betsRouter.put("/wallet/break-even", async (req, res) => {
+  const userId = (req as unknown as AuthRequest).userId;
+  const enabled = Boolean(req.body.enabled);
+  const referenceBalance = Number(req.body.referenceBalance);
+  const [user] = await db.select({ balance: usersTable.trackerBankroll }).from(usersTable).where(eq(usersTable.id, userId));
+  if (!user) return void res.status(404).json({ error: "User not found" });
+  if (enabled && (!Number.isFinite(referenceBalance) || referenceBalance < 0 || referenceBalance > 1_000_000_000)) {
+    return void res.status(400).json({ error: "Original sportsbook balance must be zero or greater" });
+  }
+  const adjustment = enabled ? roundMoney(Number(user.balance) - referenceBalance) : 0;
+  await db.update(usersTable).set({
+    trackerBreakEvenEnabled: enabled,
+    trackerBreakEvenBalance: enabled ? String(referenceBalance) : null,
+    trackerBreakEvenAdjustment: String(adjustment),
+    trackerBreakEvenSetAt: enabled ? new Date() : null,
+  }).where(eq(usersTable.id, userId));
+  return res.json(await trackerWalletOverview(userId));
 });
 
 // POST /bets/summary/reset-total-wagered — restart this account's wager counter without deleting history
@@ -392,11 +431,19 @@ betsRouter.post("/", async (req, res) => {
   const isParlay = body.betType === "parlay" || parlayLegs.length > 0;
   if (isParlay && parlayLegs.length < 2) return void res.status(400).json({ error: "A parlay requires at least two legs" });
   const odds = body.odds;
-  const profitBoostPercent = body.profitBoostPercent ?? 0;
+  const profitBoostPercent = Math.round(body.profitBoostPercent ?? 0);
+  const payoutOverride = req.body.payoutOverride === undefined || req.body.payoutOverride === ""
+    ? null : Number(req.body.payoutOverride);
+  let betDate: Date;
+  try { betDate = parseOptionalBetDate(req.body.betDate); }
+  catch (error) { return void res.status(400).json({ error: (error as Error).message }); }
   if (!body.description.trim() || !Number.isFinite(wager) || wager <= 0 || !Number.isFinite(odds) || odds === 0 || !Number.isFinite(profitBoostPercent) || profitBoostPercent < 0 || profitBoostPercent > 1000) {
     return void res.status(400).json({ error: "Valid description, wager, and odds are required" });
   }
-  const potentialPayout = calcPayout(wager, odds, profitBoostPercent);
+  if (payoutOverride !== null && (!Number.isFinite(payoutOverride) || payoutOverride < wager)) {
+    return void res.status(400).json({ error: "Total payout must be at least the wager" });
+  }
+  const potentialPayout = calculateTotalPayout(wager, odds, profitBoostPercent, payoutOverride);
   try {
     const bet = await db.transaction(async (tx) => {
       const [wallet] = await tx
@@ -424,7 +471,9 @@ betsRouter.post("/", async (req, res) => {
           odds: String(odds),
           parlayLegs,
           profitBoostPercent: String(profitBoostPercent),
+          payoutOverride: payoutOverride === null ? null : String(payoutOverride),
           potentialPayout: String(potentialPayout),
+          betDate,
           status: "pending",
           walletReserved: true,
           sport: isParlay ? "Multiple" : (body.sport ?? null),
@@ -496,7 +545,7 @@ betsRouter.patch("/:id", async (req, res) => {
   if (!description || !["pending", "won", "lost", "push", "void"].includes(status)) {
     return void res.status(400).json({ error: "Valid description and status are required" });
   }
-  const potentialPayout = calcPayout(wager, odds, profitBoostPercent);
+  const potentialPayout = calculateTotalPayout(wager, odds, profitBoostPercent, existing.payoutOverride === null ? null : Number(existing.payoutOverride));
   const actualPayout = status === "won" ? potentialPayout : status === "push" ? wager : status === "pending" ? null : 0;
   const previousBalanceDelta = trackerBalanceDelta(existing.status, Number(existing.wager), Number(existing.potentialPayout), existing.actualPayout === null ? null : Number(existing.actualPayout), existing.walletReserved);
   const nextBalanceDelta = trackerBalanceDelta(status, wager, potentialPayout, actualPayout, existing.walletReserved);

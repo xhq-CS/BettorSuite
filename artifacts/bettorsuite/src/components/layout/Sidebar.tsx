@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useMessageNotifications } from "@/hooks/use-message-notifications";
 import {
-  Target, Gamepad2, Users, Trophy, UserRound, LogOut, MessagesSquare,
+  Target, Gamepad2, Users, Trophy, UserRound, LogOut, MessagesSquare, ShieldCheck,
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +19,9 @@ export function Sidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const notifications = useMessageNotifications();
+  const visibleNavItems = user?.role === "admin"
+    ? [...navItems, { href: "/admin", label: "Control Room", icon: ShieldCheck }]
+    : navItems;
 
   return (
     <div className="hidden md:flex w-60 border-r border-border bg-sidebar flex-col h-screen overflow-y-auto z-10 sticky top-0 shrink-0">
@@ -39,7 +42,7 @@ export function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 space-y-0.5 pb-4">
-        {navItems.map(({ href, label, icon: Icon }) => {
+        {visibleNavItems.map(({ href, label, icon: Icon }) => {
           const active = href === "/tracker" ? location === "/" || location.startsWith(href) : location.startsWith(href);
           const showMessageBadge = href === "/messages" && notifications.count > 0;
           return (

@@ -3,7 +3,6 @@ import {
   useListBets,
   useCreateBet,
   useUpdateBet,
-  useGetBetSummary,
   useGetSimulatorWallet,
   getListBetsQueryKey,
   getGetBetSummaryQueryKey,
@@ -32,10 +31,12 @@ import {
   formatCurrency,
   formatOdds,
   calculatePayout,
+  calculateBoostedOdds,
   calculateParlayOdds,
 } from "@/lib/utils";
 import { api } from "@/lib/api";
-import { BET_TYPE_OPTIONS, formatBetType } from "@/lib/betting-options";
+import { betTypesForSport, formatBetType } from "@/lib/betting-options";
+import { SportInput } from "@/components/SportInput";
 import { toast } from "sonner";
 import {
   Trophy,
@@ -110,7 +111,12 @@ type TrackerWallet = {
   reconciliationLimit: number;
   reconciliationResetsAt: string;
   transactions: WalletTransaction[];
+  breakEvenEnabled: boolean;
+  breakEvenBalance: number | null;
+  breakEvenAdjustment: number;
+  breakEvenSetAt: string | null;
 };
+type TrackerSummary = { totalBets: number; wins: number; losses: number; pushes: number; winRate: number; totalWagered: number; totalProfit: number; trackedProfit: number; baselineAdjustment: number; roi: number; range: string };
 
 function sportsbookLogo(name?: string | null) {
   return SPORTSBOOKS.find(
@@ -163,6 +169,10 @@ export default function BetTracker() {
   const [walletAction, setWalletAction] = useState<"deposit" | "withdrawal" | "reconciliation">("deposit");
   const [walletReason, setWalletReason] = useState("");
   const [walletBusy, setWalletBusy] = useState(false);
+  const [breakEvenEnabled, setBreakEvenEnabled] = useState(false);
+  const [breakEvenBalance, setBreakEvenBalance] = useState("");
+  const [summaryRange, setSummaryRange] = useState<"today" | "week" | "month" | "all">("all");
+  const [includeBaseline, setIncludeBaseline] = useState(false);
   const [resetWageredOpen, setResetWageredOpen] = useState(false);
   const [resetWageredBusy, setResetWageredBusy] = useState(false);
   const [shareBet, setShareBet] = useState<ShareableBet | null>(null);
@@ -186,23 +196,33 @@ export default function BetTracker() {
   );
   const betList = Array.isArray(bets) ? bets : [];
 
-  const { data: summary, isLoading: summaryLoading } = useGetBetSummary();
+  const { data: summary, isLoading: summaryLoading } = useQuery({
+    queryKey: ["bet-summary", summaryRange, includeBaseline],
+    queryFn: () => api<TrackerSummary>(`/bets/summary?range=${summaryRange}&includeBaseline=${includeBaseline}`),
+  });
   const { data: unitWallet } = useGetSimulatorWallet();
   const { data: trackerWallet, isLoading: trackerWalletLoading } = useQuery({
     queryKey: ["tracker-wallet"],
     queryFn: () => api<TrackerWallet>("/bets/wallet"),
   });
+  useEffect(() => {
+    if (!trackerWallet) return;
+    setBreakEvenEnabled(trackerWallet.breakEvenEnabled);
+    setBreakEvenBalance(trackerWallet.breakEvenBalance === null ? "" : String(trackerWallet.breakEvenBalance));
+  }, [trackerWallet]);
 
   const createBet = useCreateBet();
   const updateBet = useUpdateBet();
 
   // Form State
   const [description, setDescription] = useState("");
-  const [betType, setBetType] = useState("prop");
+  const [betType, setBetType] = useState("player_prop");
   const [sportsbook, setSportsbook] = useState("");
   const [wager, setWager] = useState("");
   const [odds, setOdds] = useState("");
   const [profitBoost, setProfitBoost] = useState("");
+  const [payoutOverride, setPayoutOverride] = useState("");
+  const [betDate, setBetDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [sport, setSport] = useState("NBA");
   const [betMode, setBetMode] = useState<"straight" | "parlay">("straight");
   const [parlayLegs, setParlayLegs] =
@@ -233,14 +253,16 @@ export default function BetTracker() {
   const configuredBet = betList.find((bet) => bet.id === configuredBetId);
   const correctionReasonRequired =
     configuredOriginalStatus !== "pending" && configuredStatus !== configuredOriginalStatus;
-  const potentialPayoutPreview = calculatePayout(
+  const calculatedPayoutPreview = calculatePayout(
     Number(wager),
     effectiveOdds,
     Number(profitBoost || 0),
   );
+  const potentialPayoutPreview = payoutOverride ? Number(payoutOverride) : calculatedPayoutPreview;
   const refreshBets = () => {
     queryClient.invalidateQueries({ queryKey: getListBetsQueryKey() });
     queryClient.invalidateQueries({ queryKey: getGetBetSummaryQueryKey() });
+    queryClient.invalidateQueries({ queryKey: ["bet-summary"] });
     queryClient.invalidateQueries({ queryKey: ["tracker-wallet"] });
   };
 
@@ -281,6 +303,8 @@ export default function BetTracker() {
           odds: effectiveOdds,
           parlayLegs: betMode === "parlay" ? normalizedLegs! : undefined,
           profitBoostPercent: Number(profitBoost || 0),
+          payoutOverride: payoutOverride ? Number(payoutOverride) : undefined,
+          betDate,
           sport,
         },
       },
@@ -292,6 +316,8 @@ export default function BetTracker() {
           setOdds("");
           setSportsbook("");
           setProfitBoost("");
+          setPayoutOverride("");
+          setBetDate(new Date().toISOString().slice(0, 10));
           setBetMode("straight");
           setParlayLegs(createParlayLegs());
           setCreateAttempted(false);
@@ -443,6 +469,21 @@ export default function BetTracker() {
     }
   };
 
+  const saveBreakEven = async () => {
+    setWalletBusy(true);
+    try {
+      await api("/bets/wallet/break-even", {
+        method: "PUT",
+        body: JSON.stringify({ enabled: breakEvenEnabled, referenceBalance: Number(breakEvenBalance || 0) }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["tracker-wallet"] });
+      queryClient.invalidateQueries({ queryKey: ["bet-summary"] });
+      toast.success(breakEvenEnabled ? "Private break-even baseline saved" : "Break-even baseline disabled");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to save baseline");
+    } finally { setWalletBusy(false); }
+  };
+
   const resetTotalWagered = async () => {
     setResetWageredBusy(true);
     try {
@@ -479,7 +520,7 @@ export default function BetTracker() {
           runningTotal += (bet.potentialPayout || 0) - bet.wager;
         else if (bet.status === "lost") runningTotal -= bet.wager;
         return {
-          date: format(new Date(bet.createdAt), "MMM d"),
+          date: format(new Date(bet.betDate ?? bet.createdAt), "MMM d"),
           profit: runningTotal,
           units: runningTotal / trackerUnitSize,
         };
@@ -568,6 +609,10 @@ export default function BetTracker() {
       </div>
 
       {/* Summary Cards */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card/40 p-2">
+        <div className="flex gap-1">{(["today", "week", "month", "all"] as const).map((range) => <Button key={range} size="sm" variant={summaryRange === range ? "default" : "ghost"} className="h-8 capitalize" onClick={() => { setSummaryRange(range); if (range !== "all") setIncludeBaseline(false); }}>{range === "today" ? "Today" : range}</Button>)}</div>
+        {summaryRange === "all" && trackerWallet?.breakEvenEnabled && <label className="flex items-center gap-2 px-2 text-xs text-muted-foreground"><input type="checkbox" checked={includeBaseline} onChange={(event) => setIncludeBaseline(event.target.checked)} />Include pre-BettorSuite baseline</label>}
+      </div>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="bg-card/40 border-border">
           <CardContent className="p-5">
@@ -994,7 +1039,7 @@ export default function BetTracker() {
                         }
                       >
                         <TableCell className="pl-4 text-slate-600 text-xs font-medium whitespace-nowrap">
-                          {format(new Date(bet.createdAt), "MMM d")}
+                          {format(new Date(bet.betDate ?? bet.createdAt), "MMM d")}
                         </TableCell>
                         <TableCell className="pr-2">
                           <div
@@ -1020,7 +1065,7 @@ export default function BetTracker() {
                           />
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm text-slate-800 whitespace-nowrap">
-                          {formatOdds(bet.odds)}
+                          {Number(bet.profitBoostPercent) > 0 ? <><span className="rounded bg-amber-200 px-1 py-0.5 font-bold text-amber-900">{formatOdds(bet.boostedOdds ?? calculateBoostedOdds(bet.odds, bet.profitBoostPercent))}</span><div className="mt-1 text-[9px] text-muted-foreground line-through">{formatOdds(bet.odds)}</div></> : formatOdds(bet.odds)}
                         </TableCell>
                         <TableCell className="text-right font-mono text-sm font-semibold text-slate-900 whitespace-nowrap">
                           {formatCurrency(bet.wager)}
@@ -1031,7 +1076,7 @@ export default function BetTracker() {
                             : formatCurrency(totalPayout)}
                           {bet.status === "pending" && (
                             <div className="text-[9px] font-sans font-normal text-muted-foreground">
-                              Potential
+                              Pending
                             </div>
                           )}
                         </TableCell>
@@ -1064,7 +1109,7 @@ export default function BetTracker() {
                               variant="success"
                               className="min-w-[64px] justify-center text-sm px-2.5 py-0.5"
                             >
-                              Won
+                              <Trophy className="mr-1 h-3.5 w-3.5 fill-amber-300 text-amber-600" /> Won
                             </Badge>
                           )}
                           {bet.status === "lost" && (
@@ -1185,7 +1230,7 @@ export default function BetTracker() {
                           </div>
                           <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-1.5">
                             <span>
-                              {format(new Date(bet.createdAt), "MMM d")}
+                              {format(new Date(bet.betDate ?? bet.createdAt), "MMM d")}
                             </span>
                             <span>·</span>
                             <SportsbookLabel name={bet.sportsbook} />
@@ -1210,7 +1255,7 @@ export default function BetTracker() {
                             variant="success"
                             className="min-w-[64px] justify-center"
                           >
-                            Won
+                            <Trophy className="mr-1 h-3.5 w-3.5 fill-amber-300 text-amber-600" /> Won
                           </Badge>
                         ) : bet.status === "lost" ? (
                           <Badge
@@ -1439,6 +1484,11 @@ export default function BetTracker() {
                   placeholder={walletAction === "reconciliation" ? "Why does the balance need correcting?" : `Optional ${walletAction} note`}
                 />
               </div>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                <label className="flex items-start gap-2 text-sm font-semibold text-blue-950"><input type="checkbox" className="mt-1" checked={breakEvenEnabled} onChange={(event) => setBreakEvenEnabled(event.target.checked)} /><span>Use a break-even baseline<span className="mt-1 block text-xs font-normal text-blue-800">Privately include results from before BettorSuite in your own all-time view. Public profiles and leaderboards never use it.</span></span></label>
+                {breakEvenEnabled && <div className="mt-3"><label className="text-xs font-mono uppercase text-blue-800">Original Sportsbook Bankroll</label><Input type="number" min="0" step="0.01" className="mt-1 bg-white" value={breakEvenBalance} onChange={(event) => setBreakEvenBalance(event.target.value)} /></div>}
+                <Button type="button" size="sm" variant="outline" className="mt-3 w-full bg-white" disabled={walletBusy || (breakEvenEnabled && !breakEvenBalance)} onClick={saveBreakEven}>Save break-even preference</Button>
+              </div>
               {trackerWallet?.transactions?.length ? (
                 <div className="space-y-2 border-t border-border pt-4">
                   <div className="flex items-center justify-between">
@@ -1551,18 +1601,7 @@ export default function BetTracker() {
                       <label className="text-xs font-mono uppercase text-muted-foreground">
                         Sport
                       </label>
-                      <Select value={sport} onValueChange={setSport}>
-                        <SelectTrigger className="bg-background/50">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {["NBA", "WNBA", "MLB", "NFL"].map((item) => (
-                            <SelectItem key={item} value={item}>
-                              {item}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SportInput value={sport} onChange={(value) => { setSport(value); setBetType(betTypesForSport(value)[0]?.value ?? "other"); }} />
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-mono uppercase text-muted-foreground">
@@ -1573,7 +1612,7 @@ export default function BetTracker() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {BET_TYPE_OPTIONS.filter(
+                          {betTypesForSport(sport).filter(
                             (option) => option.value !== "parlay",
                           ).map((option) => (
                             <SelectItem key={option.value} value={option.value}>
@@ -1668,11 +1707,21 @@ export default function BetTracker() {
                 value={profitBoost}
                 onValueChange={setProfitBoost}
               />
+              {Number(profitBoost || 0) > 0 && effectiveOdds !== 0 && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs">
+                <span className="text-muted-foreground">Odds improved from </span>
+                <span className="font-mono">{formatOdds(effectiveOdds)}</span>
+                <span className="mx-1">to</span>
+                <span className="rounded bg-amber-300 px-1.5 py-0.5 font-mono font-bold text-amber-950">{formatOdds(calculateBoostedOdds(effectiveOdds, Number(profitBoost)))}</span>
+              </div>}
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><label className="text-xs font-mono uppercase text-muted-foreground">Bet Date</label><Input type="date" value={betDate} onChange={(e) => setBetDate(e.target.value)} /></div>
+                <div className="space-y-2"><label className="text-xs font-mono uppercase text-muted-foreground">Total Payout (optional)</label><Input type="number" min={Number(wager) || 0} step="0.01" placeholder={calculatedPayoutPreview ? calculatedPayoutPreview.toFixed(2) : "Auto"} value={payoutOverride} onChange={(e) => setPayoutOverride(e.target.value)} /></div>
+              </div>
               {wager && effectiveOdds !== 0 && (
                 <div className="p-3 bg-muted/40 rounded-md border border-border flex justify-between items-center">
                   <span className="text-xs font-mono uppercase text-muted-foreground">
-                    Potential Payout
+                    Total Payout
                   </span>
                   <span className="font-mono font-bold text-lg text-green-400">
                     {formatCurrency(potentialPayoutPreview)}
@@ -1741,7 +1790,7 @@ export default function BetTracker() {
                       <p className="mt-1 font-mono text-sm font-semibold">{formatCurrency(configuredBet.wager)}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-mono uppercase text-muted-foreground">Potential</p>
+                      <p className="text-[10px] font-mono uppercase text-muted-foreground">Total Payout</p>
                       <p className="mt-1 font-mono text-sm font-semibold">{formatCurrency(Number(configuredBet.potentialPayout ?? 0))}</p>
                     </div>
                   </div>
@@ -1793,7 +1842,7 @@ export default function BetTracker() {
                   >
                     <SelectTrigger className="bg-background/50"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {configuredOriginalStatus === "pending" && <SelectItem value="pending">Open</SelectItem>}
+                      {configuredOriginalStatus === "pending" && <SelectItem value="pending">Pending</SelectItem>}
                       <SelectItem value="won">Won</SelectItem>
                       <SelectItem value="lost">Lost</SelectItem>
                       <SelectItem value="push">Push</SelectItem>
@@ -1805,25 +1854,7 @@ export default function BetTracker() {
                     <label className="text-xs font-mono uppercase text-muted-foreground">
                       Sport
                     </label>
-                    <Select
-                      value={configuredSport}
-                      onValueChange={setConfiguredSport}
-                    >
-                      <SelectTrigger className="bg-background/50">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="NBA">NBA</SelectItem>
-                        <SelectItem value="WNBA">WNBA</SelectItem>
-                        <SelectItem value="MLB">MLB</SelectItem>
-                        <SelectItem value="NFL">NFL</SelectItem>
-                        <SelectItem value="NHL">NHL</SelectItem>
-                        <SelectItem value="NCAAF">NCAAF</SelectItem>
-                        <SelectItem value="NCAAB">NCAAB</SelectItem>
-                        <SelectItem value="Soccer">Soccer</SelectItem>
-                        <SelectItem value="Other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <SportInput id="configured-tracker-sport" value={configuredSport} onChange={setConfiguredSport} />
                   </div>
               </div>
 

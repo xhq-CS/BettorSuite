@@ -7,14 +7,15 @@ export function cn(...inputs: ClassValue[]) {
 
 export function calculatePayout(wager: number, odds: number, profitBoostPercent = 0): number {
   if (!wager || !odds) return 0;
-  let profit = 0;
-  if (odds > 0) {
-    profit = wager * (odds / 100);
-  } else if (odds < 0) {
-    profit = wager * (100 / Math.abs(odds));
-  }
-  const boostMultiplier = 1 + Math.max(0, profitBoostPercent) / 100;
-  return Math.round((wager + profit * boostMultiplier + Number.EPSILON) * 100) / 100;
+  const effectiveOdds = calculateBoostedOdds(odds, profitBoostPercent);
+  const profit = effectiveOdds > 0 ? wager * (effectiveOdds / 100) : wager * (100 / Math.abs(effectiveOdds));
+  return Math.round((wager + profit + Number.EPSILON) * 100) / 100;
+}
+
+export function calculateBoostedOdds(odds: number, profitBoostPercent = 0): number {
+  const decimal = odds > 0 ? 1 + odds / 100 : 1 + 100 / Math.abs(odds);
+  const boosted = 1 + (decimal - 1) * (1 + Math.max(0, Math.round(profitBoostPercent)) / 100);
+  return boosted >= 2 ? Math.ceil((boosted - 1) * 100) : -Math.floor(100 / (boosted - 1));
 }
 
 export function calculateParlayOdds(legs: Array<{ odds: number | string }>): number {

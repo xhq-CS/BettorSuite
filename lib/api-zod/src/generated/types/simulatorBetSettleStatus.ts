@@ -10,6 +10,7 @@ export type SimulatorBetSettleStatus = typeof SimulatorBetSettleStatus[keyof typ
 
 
 export const SimulatorBetSettleStatus = {
+  pending: 'pending',
   won: 'won',
   lost: 'lost',
   push: 'push',

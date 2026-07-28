@@ -15,6 +15,7 @@ interface SelectableBet {
   status: string;
   createdAt: string;
 }
+interface ExistingCard { id: number; title: string; picks: unknown[]; cardDate: string }
 
 interface DailyCardDialogProps {
   destination: "war-room" | "group" | "dm";
@@ -39,6 +40,25 @@ export function DailyCardDialog({
   const bets = useQuery({
     queryKey: ["daily-card-bets"],
     queryFn: () => api<SelectableBet[]>("/bets"),
+  });
+  const existingCards = useQuery({
+    queryKey: ["daily-cards", "mine"],
+    queryFn: () => api<ExistingCard[]>("/daily-cards/mine"),
+  });
+  const repost = useMutation({
+    mutationFn: (cardId: number) => api(`/daily-cards/${cardId}/share`, {
+      method: "POST",
+      body: JSON.stringify({ destination, groupId, conversationId }),
+    }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["war-room"] });
+      queryClient.invalidateQueries({ queryKey: ["group-messages", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["messages", conversationId] });
+      toast.success("Daily card reposted");
+      onPosted?.();
+      onClose();
+    },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Unable to repost card"),
   });
   const sortedBets = useMemo(
     () =>
@@ -94,7 +114,7 @@ export function DailyCardDialog({
     });
   };
   const invalidTitle = submitted && !title.trim();
-  const invalidPicks = submitted && selected.size < 3;
+  const invalidPicks = submitted && selected.size < 2;
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/75 p-4 backdrop-blur-sm">
@@ -110,7 +130,7 @@ export function DailyCardDialog({
               <Layers3 className="h-5 w-5 text-blue-400" /> Build a Daily Card
             </h2>
             <p className="mt-1 text-xs text-slate-400">
-              Package 3–12 Book Keeper picks with clear league labels.
+              Package 2–12 Book Keeper picks with clear league labels.
             </p>
           </div>
           <button
@@ -125,6 +145,14 @@ export function DailyCardDialog({
 
         <div className="grid max-h-[calc(94vh-76px)] overflow-y-auto md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.35fr)]">
           <div className="space-y-4 border-b border-slate-200 p-5 md:border-b-0 md:border-r">
+            {(existingCards.data?.length ?? 0) > 0 && <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Repost an existing card</p>
+              <div className="max-h-28 space-y-1 overflow-y-auto">
+                {existingCards.data?.slice(0, 8).map((card) => <button type="button" key={card.id} onClick={() => repost.mutate(card.id)} className="flex w-full items-center justify-between rounded-lg bg-white px-3 py-2 text-left text-xs hover:bg-blue-50">
+                  <span className="truncate font-semibold">{card.title}</span><span className="ml-2 shrink-0 font-mono text-[9px] text-slate-500">{card.picks.length} picks · Repost</span>
+                </button>)}
+              </div>
+            </div>}
             <div>
               <label htmlFor="daily-card-name" className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Card Name *
@@ -158,8 +186,8 @@ export function DailyCardDialog({
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Card Progress</div>
               <div className="mt-1 flex items-end justify-between">
                 <div className="font-mono text-3xl font-black text-slate-950">{selected.size}<span className="text-base text-slate-400">/12</span></div>
-                <div className={`text-xs font-semibold ${selected.size >= 3 ? "text-emerald-700" : "text-slate-500"}`}>
-                  {selected.size >= 3 ? "Ready to post" : `${3 - selected.size} more required`}
+                <div className={`text-xs font-semibold ${selected.size >= 2 ? "text-emerald-700" : "text-slate-500"}`}>
+                  {selected.size >= 2 ? "Ready to post" : `${2 - selected.size} more required`}
                 </div>
               </div>
             </div>
@@ -169,7 +197,7 @@ export function DailyCardDialog({
               disabled={create.isPending}
               onClick={() => {
                 setSubmitted(true);
-                if (title.trim() && selected.size >= 3) create.mutate();
+                if (title.trim() && selected.size >= 2) create.mutate();
               }}
             >
               <Send className="mr-2 h-4 w-4" />
@@ -181,9 +209,9 @@ export function DailyCardDialog({
             <div className="mb-3 flex items-end justify-between gap-3">
               <div>
                 <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Choose Book Keeper Picks</div>
-                <p className="mt-1 text-xs text-slate-500">Open picks appear first. Settled picks can be packaged as a recap.</p>
+                <p className="mt-1 text-xs text-slate-500">Pending picks appear first. Settled picks can be packaged as a recap.</p>
               </div>
-              <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 font-mono text-[10px] font-bold text-slate-600">3 minimum</span>
+              <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 font-mono text-[10px] font-bold text-slate-600">2 minimum</span>
             </div>
             <div className={`max-h-[32rem] space-y-2 overflow-y-auto pr-1 ${invalidPicks ? "rounded-xl ring-2 ring-red-100" : ""}`}>
               {sortedBets.map((bet) => {
@@ -206,7 +234,7 @@ export function DailyCardDialog({
                       <span className="mt-0.5 block truncate text-sm font-semibold text-slate-900">{bet.description}</span>
                     </span>
                     <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold uppercase ${bet.status === "pending" ? "bg-blue-50 text-blue-600" : bet.status === "won" ? "bg-emerald-50 text-emerald-600" : bet.status === "lost" ? "bg-red-50 text-red-500" : "bg-slate-100 text-slate-500"}`}>
-                      {bet.status === "pending" ? "Open" : bet.status}
+                      {bet.status === "pending" ? "Pending" : bet.status}
                     </span>
                   </button>
                 );

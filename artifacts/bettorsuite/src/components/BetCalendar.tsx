@@ -32,6 +32,7 @@ interface Bet {
   potentialPayout?: number | null;
   actualPayout?: number | null;
   createdAt: string;
+  betDate?: string;
   description?: string;
   odds?: number;
   profitBoostPercent?: number;
@@ -134,7 +135,7 @@ export function BetCalendar({ bets, label, showDayDetails = false }: Props) {
     const map = new Map<string, Bet[]>();
     for (const b of bets) {
       try {
-        const key = format(parseISO(b.createdAt), "yyyy-MM-dd");
+        const key = format(parseISO(b.betDate ?? b.createdAt), "yyyy-MM-dd");
         if (!map.has(key)) map.set(key, []);
         map.get(key)!.push(b);
       } catch {

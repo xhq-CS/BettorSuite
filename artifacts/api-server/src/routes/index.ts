@@ -11,12 +11,15 @@ import { sharesRouter } from "./shares";
 import { conversationsRouter } from "./conversations";
 import { dailyCardsRouter } from "./dailyCards";
 import { requireAuth } from "../middleware/auth";
+import { requireAdmin } from "../middleware/auth";
+import { adminRouter } from "./admin";
 
 const router = Router();
 
 router.use("/", healthRouter);
 router.use("/auth", authRouter);
 router.use(requireAuth);
+router.use("/admin", requireAdmin, adminRouter);
 router.use("/bets", betsRouter);
 router.use("/simulator", simulatorRouter);
 router.use("/posts", postsRouter);

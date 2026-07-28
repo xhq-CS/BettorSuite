@@ -8,6 +8,8 @@ import {
   SettleSimulatorBetParams,
 } from "@workspace/api-zod";
 import type { AuthRequest } from "../middleware/auth";
+import { boostedAmericanOdds, calculateTotalPayout, roundMoney } from "../lib/bettingMath";
+import { parseOptionalBetDate } from "../lib/localDates";
 
 export const simulatorRouter = Router();
 
@@ -37,17 +39,6 @@ function calcParlayOdds(legs: ParlayLeg[]): number {
 }
 
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
-
-function roundMoney(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
-
-function calcPayout(wager: number, odds: number, profitBoostPercent = 0): number {
-  const baseProfit = odds > 0
-    ? wager * (odds / 100)
-    : wager * (100 / Math.abs(odds));
-  return roundMoney(wager + baseProfit * (1 + profitBoostPercent / 100));
-}
 
 type BetStatus = "pending" | "won" | "lost" | "push";
 class InsufficientSimulatorBalanceError extends Error {}
@@ -120,12 +111,15 @@ function formatSimBet(b: typeof simulatorBetsTable.$inferSelect) {
     odds: Number(b.odds),
     parlayLegs: b.parlayLegs,
     profitBoostPercent: Number(b.profitBoostPercent),
+    boostedOdds: boostedAmericanOdds(Number(b.odds), Number(b.profitBoostPercent)),
+    payoutOverride: b.payoutOverride !== null ? Number(b.payoutOverride) : null,
     potentialPayout: Number(b.potentialPayout),
     actualPayout: b.actualPayout !== null ? Number(b.actualPayout) : null,
     status: b.status,
     sport: b.sport ?? null,
     playerName: b.playerName ?? null,
     createdAt: b.createdAt.toISOString(),
+    betDate: b.betDate.toISOString(),
   };
 }
 
@@ -258,12 +252,20 @@ simulatorRouter.post("/bets", async (req, res) => {
   const isParlay = body.betType === "parlay" || parlayLegs.length > 0;
   if (isParlay && parlayLegs.length < 2) return void res.status(400).json({ error: "A parlay requires at least two legs" });
   const odds = body.odds;
-  const profitBoostPercent = body.profitBoostPercent ?? 0;
+  const profitBoostPercent = Math.round(body.profitBoostPercent ?? 0);
+  const payoutOverride = req.body.payoutOverride === undefined || req.body.payoutOverride === ""
+    ? null : Number(req.body.payoutOverride);
+  let betDate: Date;
+  try { betDate = parseOptionalBetDate(req.body.betDate); }
+  catch (error) { return void res.status(400).json({ error: (error as Error).message }); }
   if (!body.description.trim() || !Number.isFinite(wager) || wager <= 0 || !Number.isFinite(odds) || odds === 0 || !Number.isFinite(profitBoostPercent) || profitBoostPercent < 0 || profitBoostPercent > 1000) {
     return void res.status(400).json({ error: "Valid description, wager, and odds are required" });
   }
 
-  const potentialPayout = calcPayout(wager, odds, profitBoostPercent);
+  if (payoutOverride !== null && (!Number.isFinite(payoutOverride) || payoutOverride < wager)) {
+    return void res.status(400).json({ error: "Total payout must be at least the wager" });
+  }
+  const potentialPayout = calculateTotalPayout(wager, odds, profitBoostPercent, payoutOverride);
   try {
     const bet = await db.transaction(async (tx) => {
       const [debited] = await tx
@@ -292,7 +294,9 @@ simulatorRouter.post("/bets", async (req, res) => {
           odds: String(odds),
           parlayLegs,
           profitBoostPercent: String(profitBoostPercent),
+          payoutOverride: payoutOverride === null ? null : String(payoutOverride),
           potentialPayout: String(potentialPayout),
+          betDate,
           status: "pending",
           sport: isParlay ? "Multiple" : (body.sport ?? null),
           playerName: body.playerName ?? null,
@@ -336,7 +340,17 @@ simulatorRouter.patch("/bets/:id", async (req, res) => {
   if (isParlay && parlayLegs.length < 2) return void res.status(400).json({ error: "A parlay requires at least two legs" });
   if (!isParlay) parlayLegs = [];
   const odds = isParlay ? calcParlayOdds(parlayLegs) : (req.body.odds === undefined ? Number(bet.odds) : Number(req.body.odds));
-  const profitBoostPercent = req.body.profitBoostPercent === undefined ? Number(bet.profitBoostPercent) : Number(req.body.profitBoostPercent);
+  const profitBoostPercent = Math.round(req.body.profitBoostPercent === undefined ? Number(bet.profitBoostPercent) : Number(req.body.profitBoostPercent));
+  const payoutOverride = req.body.payoutOverride === undefined
+    ? (bet.payoutOverride === null ? null : Number(bet.payoutOverride))
+    : req.body.payoutOverride === "" || req.body.payoutOverride === null
+      ? null
+      : Number(req.body.payoutOverride);
+  let betDate = bet.betDate;
+  if (req.body.betDate !== undefined) {
+    try { betDate = parseOptionalBetDate(req.body.betDate); }
+    catch (error) { return void res.status(400).json({ error: (error as Error).message }); }
+  }
   const status = (requestedStatus ?? bet.status) as BetStatus;
   if (!description || !betType || !Number.isFinite(wager) || wager <= 0 || !Number.isFinite(odds) || odds === 0 || !Number.isFinite(profitBoostPercent) || profitBoostPercent < 0 || profitBoostPercent > 1000) {
     return void res.status(400).json({ error: "Description, bet type, positive wager, and non-zero odds are required" });
@@ -344,7 +358,10 @@ simulatorRouter.patch("/bets/:id", async (req, res) => {
 
   const wallet = await getOrCreateWallet(currentUserId(req));
   const oldFinancials = betFinancials(bet.status as BetStatus, Number(bet.wager), Number(bet.potentialPayout));
-  const potentialPayout = calcPayout(wager, odds, profitBoostPercent);
+  if (payoutOverride !== null && (!Number.isFinite(payoutOverride) || payoutOverride < wager)) {
+    return void res.status(400).json({ error: "Total payout must be at least the wager" });
+  }
+  const potentialPayout = calculateTotalPayout(wager, odds, profitBoostPercent, payoutOverride);
   const nextFinancials = betFinancials(status, wager, potentialPayout);
   const newBalance = Number(wallet.balance) - oldFinancials.balanceDelta + nextFinancials.balanceDelta;
   if (newBalance < 0) return void res.status(400).json({ error: "Insufficient balance for this change" });
@@ -370,7 +387,9 @@ simulatorRouter.patch("/bets/:id", async (req, res) => {
       odds: String(odds),
       parlayLegs,
       profitBoostPercent: String(profitBoostPercent),
+      payoutOverride: payoutOverride === null ? null : String(payoutOverride),
       potentialPayout: String(potentialPayout),
+      betDate,
       status,
       actualPayout: nextFinancials.actualPayout === null ? null : String(nextFinancials.actualPayout),
     })

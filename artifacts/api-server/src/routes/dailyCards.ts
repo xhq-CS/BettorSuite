@@ -88,8 +88,8 @@ dailyCardsRouter.post("/", async (req, res) => {
     return void res.status(400).json({ error: "Card title must be 1-80 characters" });
   if (note.length > 600)
     return void res.status(400).json({ error: "Card note cannot exceed 600 characters" });
-  if (betIds.length < 3 || betIds.length > 12)
-    return void res.status(400).json({ error: "Choose 3-12 tracked picks for a daily card" });
+  if (betIds.length < 2 || betIds.length > 12)
+    return void res.status(400).json({ error: "Choose 2-12 tracked picks for a daily card" });
   if (!["war-room", "group", "dm"].includes(destination))
     return void res.status(400).json({ error: "Choose where to post this card" });
   if (destination === "group" && !Number.isInteger(groupId))
@@ -141,7 +141,7 @@ dailyCardsRouter.post("/", async (req, res) => {
 
       const [card] = await tx
         .insert(dailyCardsTable)
-        .values({ userId, title, note: note || null, leagues, picks, cardDate: now })
+        .values({ userId, title, note: note || null, leagues, picks, sourceBetIds: betIds, cardDate: now })
         .returning({ id: dailyCardsTable.id });
       if (destination === "war-room") {
         await tx.insert(postsTable).values({ userId, content, dailyCardId: card.id });
@@ -175,4 +175,32 @@ dailyCardsRouter.post("/", async (req, res) => {
 
   const card = await getDailyCard(cardId);
   return res.status(201).json(card);
+});
+
+dailyCardsRouter.post("/:id/share", async (req, res) => {
+  const userId = currentUserId(req);
+  const cardId = Number(req.params.id);
+  const destination = String(req.body.destination ?? "");
+  const groupId = Number(req.body.groupId);
+  const conversationId = Number(req.body.conversationId);
+  const [card] = await db.select().from(dailyCardsTable).where(and(
+    eq(dailyCardsTable.id, cardId),
+    eq(dailyCardsTable.userId, userId),
+  ));
+  if (!card) return void res.status(404).json({ error: "Daily card not found" });
+  const content = card.note || `${card.title} · ${card.picks.length} picks`;
+  if (destination === "war-room") {
+    if ((await warRoomPostingStatus(userId)).muted) return void res.status(403).json({ error: POSTING_DISABLED_MESSAGE });
+    await db.insert(postsTable).values({ userId, content, dailyCardId: cardId });
+  } else if (destination === "group") {
+    const posting = await groupPostingStatus(groupId, userId);
+    if (!posting.isMember || posting.muted) return void res.status(403).json({ error: posting.muted ? POSTING_DISABLED_MESSAGE : "Join this group before posting a card" });
+    await db.insert(groupMessagesTable).values({ groupId, senderId: userId, content, dailyCardId: cardId });
+  } else if (destination === "dm") {
+    if (!(await isConversationMember(conversationId, userId))) return void res.status(404).json({ error: "Conversation not found" });
+    await db.insert(messagesTable).values({ conversationId, senderId: userId, content, dailyCardId: cardId });
+  } else {
+    return void res.status(400).json({ error: "Choose where to repost this card" });
+  }
+  return res.status(201).json(await getDailyCard(cardId));
 });

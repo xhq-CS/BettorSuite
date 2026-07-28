@@ -16,6 +16,7 @@ import {
   Volume2,
   VolumeX,
   X,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -95,6 +96,7 @@ export default function GroupDetail() {
   const [showEditGroup, setShowEditGroup] = useState(false);
   const [showDeleteGroup, setShowDeleteGroup] = useState(false);
   const [showLeaveGroup, setShowLeaveGroup] = useState(false);
+  const [showGroupSettings, setShowGroupSettings] = useState(false);
   const [groupName, setGroupName] = useState("");
   const [groupDescription, setGroupDescription] = useState("");
   const [memberToRemove, setMemberToRemove] = useState<Member | null>(null);
@@ -304,59 +306,7 @@ export default function GroupDetail() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {manager && (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setGroupName(g.name);
-                  setGroupDescription(g.description ?? "");
-                  setShowEditGroup(true);
-                }}
-              >
-                <Pencil className="mr-2 h-4 w-4" />
-                Edit Group
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-                onClick={() => setShowDeleteGroup(true)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete Group
-              </Button>
-            </>
-          )}
-          {g.isMember && (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={toggleNotifications.isPending}
-              onClick={() =>
-                toggleNotifications.mutate(!g.notificationsMuted)
-              }
-            >
-              {g.notificationsMuted ? (
-                <Bell className="mr-2 h-4 w-4" />
-              ) : (
-                <BellOff className="mr-2 h-4 w-4" />
-              )}
-              {g.notificationsMuted ? "Unmute Chat" : "Mute Chat"}
-            </Button>
-          )}
-          {g.isMember && !owner && (
-            <Button
-              type="button"
-              variant="outline"
-              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-              onClick={() => setShowLeaveGroup(true)}
-            >
-              <LogOut className="mr-2 h-4 w-4" />
-              Leave Group
-            </Button>
-          )}
+          {g.isMember && <Button type="button" variant="outline" onClick={() => setShowGroupSettings(true)}><Settings className="mr-2 h-4 w-4" />Group Settings</Button>}
           {g.isMember && (
             <Button
               type="button"
@@ -779,6 +729,19 @@ export default function GroupDetail() {
           onClose={() => setShowDailyCard(false)}
         />
       )}
+      <Dialog open={showGroupSettings} onOpenChange={setShowGroupSettings}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Group Settings</DialogTitle><DialogDescription>Manage this chat and, if authorized, the group itself.</DialogDescription></DialogHeader>
+          <div className="space-y-2">
+            <Button type="button" variant="outline" className="w-full justify-start" disabled={toggleNotifications.isPending} onClick={() => toggleNotifications.mutate(!g.notificationsMuted)}>
+              {g.notificationsMuted ? <Bell className="mr-2 h-4 w-4" /> : <BellOff className="mr-2 h-4 w-4" />}{g.notificationsMuted ? "Unmute Chat Notifications" : "Mute Chat Notifications"}
+            </Button>
+            {manager && <Button type="button" variant="outline" className="w-full justify-start" onClick={() => { setGroupName(g.name); setGroupDescription(g.description ?? ""); setShowGroupSettings(false); setShowEditGroup(true); }}><Pencil className="mr-2 h-4 w-4" />Edit Group</Button>}
+            {!owner && <Button type="button" variant="outline" className="w-full justify-start border-red-200 text-red-600" onClick={() => { setShowGroupSettings(false); setShowLeaveGroup(true); }}><LogOut className="mr-2 h-4 w-4" />Leave Group</Button>}
+            {manager && <Button type="button" variant="destructive" className="w-full justify-start" onClick={() => { setShowGroupSettings(false); setShowDeleteGroup(true); }}><Trash2 className="mr-2 h-4 w-4" />Delete Group</Button>}
+          </div>
+        </DialogContent>
+      </Dialog>
       <Dialog open={showEditGroup} onOpenChange={setShowEditGroup}>
         <DialogContent className="sm:max-w-md">
           <form

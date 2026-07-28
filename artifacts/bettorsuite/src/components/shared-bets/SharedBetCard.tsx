@@ -40,7 +40,7 @@ export interface SharedBetSnapshot {
 
 const STATUS_DETAILS = {
   pending: {
-    label: "Open Slip",
+    label: "Pending Slip",
     action: "Tail this bet",
     icon: Clock3,
     color: "border-blue-200 bg-blue-50 text-blue-700",

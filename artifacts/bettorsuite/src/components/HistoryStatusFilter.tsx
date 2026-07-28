@@ -37,7 +37,7 @@ export function HistoryStatusFilter({
       </SelectTrigger>
       <SelectContent>
         <SelectItem value="all">All results</SelectItem>
-        <SelectItem value="pending">Open</SelectItem>
+        <SelectItem value="pending">Pending</SelectItem>
         <SelectItem value="won">Won</SelectItem>
         <SelectItem value="lost">Lost</SelectItem>
         <SelectItem value="push">Push</SelectItem>

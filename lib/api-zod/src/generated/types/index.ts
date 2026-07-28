@@ -11,6 +11,7 @@ export * from './betInput';
 export * from './betRemovalInput';
 export * from './betStatus';
 export * from './betSummary';
+export * from './betSummaryRange';
 export * from './betUpdate';
 export * from './betUpdateStatus';
 export * from './conversation';

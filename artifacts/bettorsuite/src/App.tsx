@@ -39,6 +39,7 @@ function Router() {
         <Route path="/messages"            component={DirectMessages} />
         <Route path="/profile/me"          component={MyProfile}    />
         <Route path="/profile/:id"         component={UserProfile}  />
+        <Route path="/admin"               component={AdminHome}    />
         <Route                             component={NotFound}     />
       </Switch></Suspense>
     </AppLayout>
@@ -78,10 +79,10 @@ function App() {
 function AuthenticatedApp() {
   const { user, loading } = useAuth();
   if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-muted-foreground">Loading…</div>;
-  const adminPath = window.location.pathname === '/admin/login';
-  if (!user) return <Suspense fallback={<PageLoading />}><AuthPage admin={adminPath} /></Suspense>;
-  if (adminPath && user.role !== 'admin') return <Suspense fallback={<PageLoading />}><AuthPage admin /></Suspense>;
-  if (adminPath) return <Suspense fallback={<PageLoading />}><AdminHome /></Suspense>;
+  const adminLoginPath = window.location.pathname === '/admin/login';
+  if (!user) return <Suspense fallback={<PageLoading />}><AuthPage admin={adminLoginPath} /></Suspense>;
+  if (adminLoginPath && user.role !== 'admin') return <Suspense fallback={<PageLoading />}><AuthPage admin /></Suspense>;
+  if (adminLoginPath) window.history.replaceState(null, "", "/admin");
   return <Router />;
 }
 

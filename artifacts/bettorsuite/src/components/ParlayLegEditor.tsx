@@ -8,7 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BET_TYPE_OPTIONS } from "@/lib/betting-options";
+import { betTypesForSport } from "@/lib/betting-options";
+import { SportInput } from "@/components/SportInput";
 import { calculateParlayOdds, formatOdds } from "@/lib/utils";
 
 export interface ParlayLegDraft {
@@ -26,28 +27,12 @@ export interface ParlayLeg {
   betType: string;
 }
 
-const SPORTS = [
-  "NBA",
-  "WNBA",
-  "MLB",
-  "NFL",
-  "NHL",
-  "NCAAF",
-  "NCAAB",
-  "Soccer",
-  "Other",
-];
-const LEG_TYPES = BET_TYPE_OPTIONS.filter(
-  (option) =>
-    !["parlay", "same_game_parlay", "round_robin"].includes(option.value),
-);
-
 function legKey() {
   return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
 }
 
 function emptyLeg(sport = "NBA"): ParlayLegDraft {
-  return { key: legKey(), description: "", odds: "", sport, betType: "prop" };
+  return { key: legKey(), description: "", odds: "", sport, betType: "player_prop" };
 }
 
 export function createParlayLegs(): ParlayLegDraft[] {
@@ -163,24 +148,7 @@ export function ParlayLegEditor({
                 className={`mb-2 h-9 bg-slate-50 ${descriptionInvalid ? "border-red-400 focus-visible:border-red-500 focus-visible:ring-red-200" : ""}`}
               />
               <div className="grid grid-cols-3 gap-2">
-                <Select
-                  value={leg.sport}
-                  onValueChange={(sport) => updateLeg(index, { sport })}
-                >
-                  <SelectTrigger
-                    aria-label={`Leg ${index + 1} sport`}
-                    className="h-9 bg-slate-50 px-2"
-                  >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SPORTS.map((sport) => (
-                      <SelectItem key={sport} value={sport}>
-                        {sport}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SportInput id={`leg-${leg.key}-sport`} value={leg.sport} onChange={(sport) => updateLeg(index, { sport, betType: betTypesForSport(sport)[0]?.value ?? "other" })} />
                 <Select
                   value={leg.betType}
                   onValueChange={(betType) => updateLeg(index, { betType })}
@@ -192,7 +160,7 @@ export function ParlayLegEditor({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {LEG_TYPES.map((option) => (
+                    {betTypesForSport(leg.sport).filter((option) => !["parlay", "same_game_parlay", "round_robin"].includes(option.value)).map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>

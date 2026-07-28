@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import type { Conversation } from "@/lib/social-types";
@@ -14,6 +15,7 @@ interface PendingInvite {
 }
 
 export function useMessageNotifications() {
+  const previousCount = useRef<number | null>(null);
   const conversations = useQuery({
     queryKey: ["conversations"],
     queryFn: () => api<Conversation[]>("/conversations"),
@@ -42,9 +44,33 @@ export function useMessageNotifications() {
     0,
   );
   const inviteCount = invites.data?.length ?? 0;
+  const count = directUnread + groupUnread + inviteCount;
+
+  useEffect(() => {
+    if (previousCount.current !== null && count > previousCount.current) {
+      try {
+        const AudioContextClass = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+        if (AudioContextClass) {
+          const context = new AudioContextClass();
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          oscillator.frequency.value = 880;
+          gain.gain.setValueAtTime(0.035, context.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.12);
+          oscillator.connect(gain).connect(context.destination);
+          oscillator.start();
+          oscillator.stop(context.currentTime + 0.12);
+          oscillator.addEventListener("ended", () => void context.close());
+        }
+      } catch {
+        // Audio may be blocked until the first user interaction.
+      }
+    }
+    previousCount.current = count;
+  }, [count]);
 
   return {
-    count: directUnread + groupUnread + inviteCount,
+    count,
     directUnread,
     groupUnread,
     inviteCount,

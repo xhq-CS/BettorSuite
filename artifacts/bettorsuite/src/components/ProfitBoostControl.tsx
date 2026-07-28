@@ -26,10 +26,10 @@ export function ProfitBoostControl({ value, onValueChange }: ProfitBoostControlP
               type="number"
               min="0"
               max="1000"
-              step="0.01"
-              inputMode="decimal"
+              step="1"
+              inputMode="numeric"
               value={value}
-              onChange={(event) => onValueChange(event.target.value)}
+              onChange={(event) => onValueChange(event.target.value === "" ? "" : String(Math.max(0, Math.round(Number(event.target.value)))))}
               className="h-8 border-amber-300 bg-white px-2 pr-6 text-right font-mono text-sm font-semibold focus-visible:ring-amber-400"
               aria-label="Profit boost percentage"
             />

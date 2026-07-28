@@ -4,7 +4,7 @@
 
 BettorSuite is an all-in-one sportsbook journal, mock betting workspace, and social community. It replaces manual paper tracking with private account data, consistent performance analytics, shareable picks, and conversations built around the bets themselves.
 
-**Current version:** `v2.3.0`
+**Current version:** `v2.4.0`
 
 ## What is in v2
 
@@ -12,11 +12,15 @@ BettorSuite is an all-in-one sportsbook journal, mock betting workspace, and soc
 - **Mock Betting** - Test the same ideas against a virtual bankroll without risking real money.
 - **Profiles and leaderboard** - Publish tracked picks, follow bettors, compare verified performance, and see seven-day form at a glance.
 - **Community** - Find groups and bettors, talk in private groups or the public War Room, and share open or settled tickets.
-- **Daily Cards** - Package three or more picks by league and publish them to a profile, group, or the War Room.
+- **Daily Cards** - Package two or more picks by league and publish or repost them to profiles, groups, Direct Messages, or the War Room.
 - **Tail a bet** - Copy an open pick into Book Keeper or Mock Betting, choose the sportsbook, set the wager, and optionally enter the price available at your own book.
 - **Messages** - Send direct messages, picks, parlays, and Daily Cards one-to-one.
 
 ## Release history
+
+### v2.4.0 - Control Room and precision tracking
+
+This release adds an audited administrator Control Room for account and bet moderation, private Book Keeper break-even baselines, date-aware performance ranges, custom leagues with sport-specific bet types, corrected whole-number profit-boost odds, manual payout overrides, private nicknames, clickable follow lists, account deletion, live Daily Card results, reusable cards, consolidated Group Settings, and notification sounds.
 
 ### v2.3.0 - Accountable Book Keeper
 
@@ -96,7 +100,7 @@ BettorSuite uses semantic versioning:
 - `MINOR` for backward-compatible features.
 - `PATCH` for backward-compatible fixes and polish.
 
-The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.3.0`.
+The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.4.0`.
 
 ## Privacy
 

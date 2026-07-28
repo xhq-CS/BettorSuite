@@ -14,4 +14,10 @@ export interface TrackerWallet {
   reconciliationLimit: number;
   reconciliationResetsAt: string;
   transactions: TrackerWalletTransaction[];
+  breakEvenEnabled?: boolean;
+  /** @nullable */
+  breakEvenBalance?: number | null;
+  breakEvenAdjustment?: number;
+  /** @nullable */
+  breakEvenSetAt?: string | null;
 }

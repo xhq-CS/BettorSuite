@@ -22,6 +22,8 @@ export interface SimulatorBetInput {
      * @maximum 1000
      */
   profitBoostPercent?: number;
+  payoutOverride?: number;
+  betDate?: Date;
   sport?: string;
   playerName?: string;
 }

@@ -3,6 +3,30 @@
 All notable BettorSuite releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [2.4.0] - 2026-07-28
+
+### Added
+
+- An admin-only Control Room with account search, audited profile moderation, user bet review, result correction, wallet-safe bet reversal, data-only resets, permanent account deletion, and an audit trail.
+- Optional private Book Keeper break-even baselines and owner-only Today, Week, Month, and All-Time performance views.
+- Optional bet dates, custom leagues, sport-specific bet menus, private nicknames, clickable follower/following lists, and self-service account deletion.
+- Optional manual Total Payout values in Book Keeper and Mock Betting.
+- Daily Card reposting, live pick-result synchronization, and support for two-pick cards.
+- Consolidated Group Settings and a subtle unread-message notification sound.
+
+### Changed
+
+- Corrected profit boosts to calculate and display whole-number boosted American odds while preserving the original odds.
+- Renamed remaining Potential Payout labels to Total Payout and restored Pending terminology throughout betting surfaces.
+- Bet calendars, profit curves, leaderboard streaks, and profile streaks now use the selected bet date in the application timezone.
+- Winning history rows now include a site-matched trophy treatment.
+
+### Fixed
+
+- Corrected the `-122` plus `25%` boost case to `+103`, producing a `$20.30` total payout on a `$10` wager.
+- Corrected weekday alignment and per-day P&L in seven-day form strips.
+- Kept Daily Card results current across profiles, groups, Direct Messages, and the War Room after a source bet is settled.
+
 ## [2.3.0] - 2026-07-22
 
 ### Added

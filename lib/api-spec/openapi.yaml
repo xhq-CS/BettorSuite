@@ -609,13 +609,16 @@ components:
         odds:         { type: number }
         parlayLegs:   { type: array, items: { $ref: "#/components/schemas/ParlayLeg" } }
         profitBoostPercent: { type: number }
+        boostedOdds: { type: number }
         potentialPayout: { type: number }
+        payoutOverride: { type: ["number", "null"] }
         actualPayout: { type: ["number", "null"] }
         status:       { type: string, enum: [pending, won, lost, push, void] }
         sport:        { type: ["string", "null"] }
         playerName:   { type: ["string", "null"] }
         notes:        { type: ["string", "null"] }
         createdAt:    { type: string }
+        betDate:      { type: string }
         settledAt:    { type: ["string", "null"] }
 
     BetInput:
@@ -629,6 +632,8 @@ components:
         odds:         { type: number }
         parlayLegs:   { type: array, minItems: 2, maxItems: 20, items: { $ref: "#/components/schemas/ParlayLeg" } }
         profitBoostPercent: { type: number, minimum: 0, maximum: 1000 }
+        payoutOverride: { type: number }
+        betDate:      { type: string, format: date }
         sport:        { type: string }
         playerName:   { type: string }
         notes:        { type: string }
@@ -642,6 +647,8 @@ components:
         sportsbook:   { type: string }
         sport:        { type: string }
         notes:        { type: string }
+        payoutOverride: { type: ["number", "null"] }
+        betDate:      { type: string, format: date }
         correctionReason: { type: string, minLength: 3, maxLength: 160 }
 
     BetRemovalInput:
@@ -674,6 +681,10 @@ components:
         transactions:
           type: array
           items: { $ref: "#/components/schemas/TrackerWalletTransaction" }
+        breakEvenEnabled: { type: boolean }
+        breakEvenBalance: { type: ["number", "null"] }
+        breakEvenAdjustment: { type: number }
+        breakEvenSetAt: { type: ["string", "null"] }
 
     TrackerWalletTransactionInput:
       type: object
@@ -704,6 +715,9 @@ components:
         winRate:      { type: number }
         totalWagered: { type: number }
         totalProfit:  { type: number }
+        trackedProfit: { type: number }
+        baselineAdjustment: { type: number }
+        range: { type: string, enum: [today, week, month, all] }
         roi:          { type: number }
 
     # ── Simulator ────────────────────────────────────────────────────────
@@ -742,12 +756,15 @@ components:
         odds:            { type: number }
         parlayLegs:      { type: array, items: { $ref: "#/components/schemas/ParlayLeg" } }
         profitBoostPercent: { type: number }
+        boostedOdds:      { type: number }
         potentialPayout: { type: number }
+        payoutOverride:  { type: ["number", "null"] }
         actualPayout:    { type: ["number", "null"] }
         status:          { type: string, enum: [pending, won, lost, push] }
         sport:           { type: ["string", "null"] }
         playerName:      { type: ["string", "null"] }
         createdAt:       { type: string }
+        betDate:         { type: string }
 
     SimulatorBetInput:
       type: object
@@ -759,6 +776,8 @@ components:
         odds:        { type: number }
         parlayLegs:  { type: array, minItems: 2, maxItems: 20, items: { $ref: "#/components/schemas/ParlayLeg" } }
         profitBoostPercent: { type: number, minimum: 0, maximum: 1000 }
+        payoutOverride: { type: number }
+        betDate:       { type: string, format: date }
         sport:       { type: string }
         playerName:  { type: string }
 
@@ -766,7 +785,7 @@ components:
       type: object
       required: [status]
       properties:
-        status: { type: string, enum: [won, lost, push] }
+        status: { type: string, enum: [pending, won, lost, push] }
 
     # ── Community ────────────────────────────────────────────────────────
     Post:

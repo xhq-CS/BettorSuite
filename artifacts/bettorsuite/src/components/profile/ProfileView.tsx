@@ -12,6 +12,8 @@ import {
   UserPlus,
   Users,
   X,
+  Trash2,
+  Tag,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -56,6 +58,13 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
   const [status, setStatus] = useState("all");
   const [tailBet, setTailBet] = useState<SharedBetSnapshot | null>(null);
   const [showDailyCard, setShowDailyCard] = useState(false);
+  const [peopleList, setPeopleList] = useState<"followers" | "following" | null>(null);
+  const [nickname, setNickname] = useState("");
+  const [statsRange, setStatsRange] = useState<"today" | "week" | "month" | "all">("all");
+  const [includeBaseline, setIncludeBaseline] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const profilePath = isOwn ? "/users/me" : `/users/${userId}`;
   const profile = useQuery({
     queryKey: ["profile", isOwn ? "me" : userId],
@@ -72,6 +81,17 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
     queryKey: ["profile-daily-cards", resolvedId],
     queryFn: () => api<DailyCard[]>(`/users/${resolvedId}/daily-cards`),
     enabled: Boolean(resolvedId),
+    refetchInterval: 4000,
+  });
+  const privateStats = useQuery({
+    queryKey: ["profile-private-stats", statsRange, includeBaseline],
+    queryFn: () => api<{ totalBets: number; wins: number; losses: number; pushes: number; winRate: number; roi: number; totalProfit: number }>(`/bets/summary?range=${statsRange}&includeBaseline=${includeBaseline}`),
+    enabled: isOwn,
+  });
+  const people = useQuery({
+    queryKey: ["profile-people", resolvedId, peopleList],
+    queryFn: () => api<BettorProfile[]>(`/users/${resolvedId}/${peopleList}`),
+    enabled: Boolean(resolvedId && peopleList),
   });
   const sports = useMemo(
     () =>
@@ -131,11 +151,23 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
     },
     onError: (error) => toast.error(error instanceof Error ? error.message : "Unable to remove card"),
   });
+  const saveNickname = useMutation({
+    mutationFn: () => api(`/users/${resolvedId}/nickname`, { method: "PUT", body: JSON.stringify({ nickname }) }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["profile", userId] }); toast.success("Private nickname saved"); },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Unable to save nickname"),
+  });
+  const deleteAccount = useMutation({
+    mutationFn: () => api("/users/me", { method: "DELETE", body: JSON.stringify({ password: deletePassword, confirmation: deleteConfirmation }) }),
+    onSuccess: () => { window.location.href = "/"; },
+    onError: (error) => toast.error(error instanceof Error ? error.message : "Unable to delete account"),
+  });
 
   if (profile.isLoading) return <div className="py-20 text-center text-sm text-muted-foreground">Loading profile…</div>;
   if (!profile.data) return <div className="py-20 text-center text-sm text-muted-foreground">Profile not found.</div>;
   const person = profile.data;
-  const stats = person.stats;
+  const stats = isOwn && privateStats.data
+    ? { ...person.stats, ...privateStats.data }
+    : person.stats;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -185,6 +217,7 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
                       <Button type="button" variant="outline" disabled={message.isPending} onClick={() => message.mutate()}>
                         <MessageCircleMore className="mr-2 h-4 w-4" /> Message
                       </Button>
+                      {person.isFollowing && <div className="flex items-center gap-1"><Input className="h-9 w-36" value={nickname} onFocus={() => !nickname && setNickname(person.nickname ?? "")} onChange={(event) => setNickname(event.target.value)} placeholder="Private nickname" /><Button type="button" size="icon" variant="outline" onClick={() => saveNickname.mutate()} aria-label="Save private nickname"><Tag className="h-4 w-4" /></Button></div>}
                     </>
                   )}
                 </div>
@@ -202,8 +235,8 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
                   <div>
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
                       <span><strong className="font-mono text-slate-950">{(picks.data?.length ?? 0) + (cards.data?.length ?? 0)}</strong> posts</span>
-                      <span><strong className="font-mono text-slate-950">{person.followersCount}</strong> followers</span>
-                      <span><strong className="font-mono text-slate-950">{person.followingCount}</strong> following</span>
+                      <button type="button" onClick={() => setPeopleList("followers")} className="hover:text-blue-600"><strong className="font-mono text-slate-950">{person.followersCount}</strong> followers</button>
+                      <button type="button" onClick={() => setPeopleList("following")} className="hover:text-blue-600"><strong className="font-mono text-slate-950">{person.followingCount}</strong> following</button>
                     </div>
                     <p className="mt-3 max-w-2xl whitespace-pre-wrap text-sm leading-6 text-slate-700">{person.bio || "No bio yet."}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500">
@@ -223,6 +256,10 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
       </Card>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {isOwn && <div className="col-span-full flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-white p-2">
+          <div className="flex gap-1">{(["today", "week", "month", "all"] as const).map((range) => <Button key={range} size="sm" variant={statsRange === range ? "default" : "ghost"} className="h-8 capitalize" onClick={() => { setStatsRange(range); if (range !== "all") setIncludeBaseline(false); }}>{range}</Button>)}</div>
+          {statsRange === "all" && <label className="flex items-center gap-2 px-2 text-xs text-slate-500"><input type="checkbox" checked={includeBaseline} onChange={(event) => setIncludeBaseline(event.target.checked)} />My private break-even baseline</label>}
+        </div>}
         <Card><CardContent className="p-4"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Net Profit</div><div className={`mt-1 font-mono text-2xl font-black ${stats.totalProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}>{stats.totalProfit >= 0 ? "+" : ""}{formatCurrency(stats.totalProfit)}</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Win Rate</div><div className="mt-1 font-mono text-2xl font-black text-slate-950">{(stats.winRate * 100).toFixed(1)}%</div><div className="mt-1 text-xs text-slate-500">{stats.wins}W · {stats.losses}L · {stats.pushes}P</div></CardContent></Card>
         <Card><CardContent className="p-4"><div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">ROI</div><div className={`mt-1 font-mono text-2xl font-black ${stats.roi >= 0 ? "text-emerald-600" : "text-red-600"}`}>{stats.roi >= 0 ? "+" : ""}{(stats.roi * 100).toFixed(1)}%</div></CardContent></Card>
@@ -239,7 +276,7 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
             <div className="flex flex-wrap gap-2 pb-3">
               <div className="relative"><Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search picks…" className="h-9 w-44 pl-8 text-xs" /></div>
               <Select value={sport} onValueChange={setSport}><SelectTrigger className="h-9 w-32 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All leagues</SelectItem>{sports.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select>
-              <Select value={status} onValueChange={setStatus}><SelectTrigger className="h-9 w-28 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All results</SelectItem><SelectItem value="pending">Open</SelectItem><SelectItem value="won">Won</SelectItem><SelectItem value="lost">Lost</SelectItem><SelectItem value="push">Push</SelectItem></SelectContent></Select>
+              <Select value={status} onValueChange={setStatus}><SelectTrigger className="h-9 w-28 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All results</SelectItem><SelectItem value="pending">Pending</SelectItem><SelectItem value="won">Won</SelectItem><SelectItem value="lost">Lost</SelectItem><SelectItem value="push">Push</SelectItem></SelectContent></Select>
             </div>
           ) : isOwn ? (
             <Button type="button" size="sm" variant="outline" className="mb-3" onClick={() => setShowDailyCard(true)}>
@@ -268,6 +305,9 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
           onClose={() => setShowDailyCard(false)}
         />
       )}
+      {isOwn && <Card className="border-red-200"><CardContent className="flex items-center justify-between gap-4 p-4"><div><p className="text-sm font-semibold text-red-700">Delete account</p><p className="text-xs text-slate-500">Permanently remove your login, profile, bets, wallet, and messages.</p></div><Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="mr-2 h-4 w-4" />Delete Account</Button></CardContent></Card>}
+      {peopleList && <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm"><Card className="w-full max-w-md"><div className="flex items-center justify-between border-b p-4"><h2 className="font-semibold capitalize">{peopleList}</h2><Button size="icon" variant="ghost" onClick={() => setPeopleList(null)}><X className="h-4 w-4" /></Button></div><CardContent className="max-h-[60vh] space-y-1 overflow-y-auto p-3">{people.data?.map((account) => <button key={account.id} type="button" onClick={() => { setPeopleList(null); navigate(`/profile/${account.id}`); }} className="flex w-full items-center gap-3 rounded-lg p-3 text-left hover:bg-slate-50"><Avatar><AvatarImage src={account.avatarUrl ?? undefined} /><AvatarFallback>{account.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><div><p className="text-sm font-semibold">{account.nickname || account.displayName || account.username}</p><p className="text-xs text-slate-500">@{account.username}</p></div></button>)}{!people.isLoading && !people.data?.length && <p className="py-8 text-center text-sm text-slate-500">Nobody here yet.</p>}</CardContent></Card></div>}
+      {deleteOpen && <div className="fixed inset-0 z-[95] grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm"><Card className="w-full max-w-md"><CardContent className="space-y-4 p-5"><div className="flex justify-between"><div><h2 className="font-semibold text-red-700">Permanently delete account?</h2><p className="mt-1 text-xs text-slate-500">This cannot be reversed.</p></div><Button size="icon" variant="ghost" onClick={() => setDeleteOpen(false)}><X className="h-4 w-4" /></Button></div><div><label className="text-xs font-semibold">Password</label><Input type="password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} /></div><div><label className="text-xs font-semibold">Type {person.username}</label><Input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} /></div><Button className="w-full" variant="destructive" disabled={deleteAccount.isPending || deleteConfirmation !== person.username || !deletePassword} onClick={() => deleteAccount.mutate()}>Delete every part of my account</Button></CardContent></Card></div>}
     </div>
   );
 }

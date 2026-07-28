@@ -32,10 +32,12 @@ import {
   formatCurrency,
   formatOdds,
   calculatePayout,
+  calculateBoostedOdds,
   calculateParlayOdds,
 } from "@/lib/utils";
 import { api } from "@/lib/api";
-import { BET_TYPE_OPTIONS, formatBetType } from "@/lib/betting-options";
+import { betTypesForSport, formatBetType } from "@/lib/betting-options";
+import { SportInput } from "@/components/SportInput";
 import { toast } from "sonner";
 import {
   CheckCircle2,
@@ -50,6 +52,7 @@ import {
   List,
   Trash2,
   Share2,
+  Trophy,
 } from "lucide-react";
 import { format } from "date-fns";
 import { BetCalendar } from "@/components/BetCalendar";
@@ -205,10 +208,12 @@ export default function Simulator() {
 
   // Bet form
   const [description, setDescription] = useState("");
-  const [betType, setBetType] = useState("prop");
+  const [betType, setBetType] = useState("player_prop");
   const [wager, setWager] = useState("");
   const [odds, setOdds] = useState("");
   const [profitBoost, setProfitBoost] = useState("");
+  const [payoutOverride, setPayoutOverride] = useState("");
+  const [betDate, setBetDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [sport, setSport] = useState("NBA");
   const [betMode, setBetMode] = useState<"straight" | "parlay">("straight");
   const [parlayLegs, setParlayLegs] =
@@ -217,10 +222,12 @@ export default function Simulator() {
 
   // Configure an existing mock bet
   const [configuredDescription, setConfiguredDescription] = useState("");
-  const [configuredType, setConfiguredType] = useState("prop");
+  const [configuredType, setConfiguredType] = useState("player_prop");
   const [configuredWager, setConfiguredWager] = useState("");
   const [configuredOdds, setConfiguredOdds] = useState("");
   const [configuredProfitBoost, setConfiguredProfitBoost] = useState("");
+  const [configuredPayoutOverride, setConfiguredPayoutOverride] = useState("");
+  const [configuredBetDate, setConfiguredBetDate] = useState("");
   const [configuredSport, setConfiguredSport] = useState("NBA");
   const [configuredStatus, setConfiguredStatus] = useState<
     "pending" | "won" | "lost" | "push"
@@ -265,11 +272,12 @@ export default function Simulator() {
     (!configuredOdds ||
       !Number.isFinite(Number(configuredOdds)) ||
       Number(configuredOdds) === 0);
-  const potentialPayoutPreview = calculatePayout(
+  const calculatedPayoutPreview = calculatePayout(
     Number(wager),
     effectiveOdds,
     Number(profitBoost || 0),
   );
+  const potentialPayoutPreview = payoutOverride ? Number(payoutOverride) : calculatedPayoutPreview;
 
   useEffect(() => {
     if (!wallet) return;
@@ -387,6 +395,8 @@ export default function Simulator() {
           odds: effectiveOdds,
           parlayLegs: betMode === "parlay" ? normalizedLegs! : undefined,
           profitBoostPercent: Number(profitBoost || 0),
+          payoutOverride: payoutOverride ? Number(payoutOverride) : undefined,
+          betDate,
           sport,
         },
       },
@@ -397,6 +407,8 @@ export default function Simulator() {
           setWager("");
           setOdds("");
           setProfitBoost("");
+          setPayoutOverride("");
+          setBetDate(new Date().toISOString().slice(0, 10));
           setBetMode("straight");
           setParlayLegs(createParlayLegs());
           setCreateAttempted(false);
@@ -433,6 +445,8 @@ export default function Simulator() {
     setConfiguredProfitBoost(
       Number(bet.profitBoostPercent) > 0 ? String(bet.profitBoostPercent) : "",
     );
+    setConfiguredPayoutOverride(bet.payoutOverride == null ? "" : String(bet.payoutOverride));
+    setConfiguredBetDate(String(bet.betDate ?? bet.createdAt).slice(0, 10));
     setConfiguredSport(bet.sport ?? "NBA");
     setConfiguredStatus(bet.status);
     setConfiguredMode(
@@ -473,6 +487,8 @@ export default function Simulator() {
               : Number(configuredOdds),
           parlayLegs: normalizedLegs,
           profitBoostPercent: Number(configuredProfitBoost || 0),
+          payoutOverride: configuredPayoutOverride ? Number(configuredPayoutOverride) : null,
+          betDate: configuredBetDate,
           sport: configuredSport,
           status: configuredStatus,
         }),
@@ -555,7 +571,7 @@ export default function Simulator() {
           cumulative += (bet.actualPayout ?? bet.potentialPayout) - bet.wager;
         else if (bet.status === "lost") cumulative -= bet.wager;
         return {
-          date: format(new Date(bet.createdAt), "MMM d"),
+          date: format(new Date(bet.betDate ?? bet.createdAt), "MMM d"),
           profit: Number(cumulative.toFixed(2)),
           units: Number((cumulative / unitSize).toFixed(2)),
         };
@@ -948,7 +964,7 @@ export default function Simulator() {
                             }
                           >
                             <TableCell className="pl-4 text-slate-600 text-xs font-medium whitespace-nowrap">
-                              {format(new Date(bet.createdAt), "MMM d")}
+                              {format(new Date(bet.betDate ?? bet.createdAt), "MMM d")}
                             </TableCell>
                             <TableCell className="pr-2">
                               <div
@@ -972,7 +988,7 @@ export default function Simulator() {
                               />
                             </TableCell>
                             <TableCell className="text-right font-mono text-sm text-slate-800 whitespace-nowrap">
-                              {formatOdds(bet.odds)}
+                              {Number(bet.profitBoostPercent) > 0 ? <><span className="rounded bg-amber-200 px-1 py-0.5 font-bold text-amber-900">{formatOdds(bet.boostedOdds ?? calculateBoostedOdds(bet.odds, bet.profitBoostPercent))}</span><div className="mt-1 text-[9px] text-muted-foreground line-through">{formatOdds(bet.odds)}</div></> : formatOdds(bet.odds)}
                             </TableCell>
                             <TableCell className="text-right font-mono text-sm font-semibold text-slate-900 whitespace-nowrap">
                               {formatCurrency(bet.wager)}
@@ -983,7 +999,7 @@ export default function Simulator() {
                                 : formatCurrency(totalPayout)}
                               {bet.status === "pending" && (
                                 <div className="text-[9px] font-sans font-normal text-muted-foreground">
-                                  Potential
+                                  Pending
                                 </div>
                               )}
                             </TableCell>
@@ -1013,7 +1029,7 @@ export default function Simulator() {
                                   variant="success"
                                   className="min-w-[64px] justify-center text-sm px-2.5 py-0.5"
                                 >
-                                  Won
+                                  <Trophy className="mr-1 h-3.5 w-3.5 fill-amber-300 text-amber-600" /> Won
                                 </Badge>
                               )}
                               {bet.status === "lost" && (
@@ -1135,7 +1151,7 @@ export default function Simulator() {
                               </div>
                               <div className="text-xs text-muted-foreground mt-1 flex flex-wrap items-center gap-1.5">
                                 <span>
-                                  {format(new Date(bet.createdAt), "MMM d")} ·{" "}
+                                  {format(new Date(bet.betDate ?? bet.createdAt), "MMM d")} ·{" "}
                                   {bet.sport} · {formatBetType(bet.betType)}
                                 </span>
                                 <ProfitBoostBadge
@@ -1155,7 +1171,7 @@ export default function Simulator() {
                                 variant="success"
                                 className="min-w-[64px] justify-center"
                               >
-                                Won
+                                <Trophy className="mr-1 h-3.5 w-3.5 fill-amber-300 text-amber-600" /> Won
                               </Badge>
                             ) : bet.status === "lost" ? (
                               <Badge
@@ -1233,7 +1249,7 @@ export default function Simulator() {
                               disabled={bet.status === "won"}
                               onClick={() => handleSettle(bet.id, "won")}
                             >
-                              Won
+                              <Trophy className="mr-1 h-3.5 w-3.5 fill-amber-300 text-amber-600" /> Won
                             </Button>
                             <Button
                               size="sm"
@@ -1387,18 +1403,7 @@ export default function Simulator() {
                 <label className="mb-1.5 block text-xs font-mono uppercase text-muted-foreground">
                   Sport
                 </label>
-                <Select value={sport} onValueChange={setSport}>
-                  <SelectTrigger className="bg-background/50">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["NBA", "WNBA", "MLB", "NFL"].map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SportInput value={sport} onChange={(value) => { setSport(value); setBetType(betTypesForSport(value)[0]?.value ?? "other"); }} />
               </div>
               <div>
                 <label className="mb-1.5 block text-xs font-mono uppercase text-muted-foreground">
@@ -1409,7 +1414,7 @@ export default function Simulator() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {BET_TYPE_OPTIONS.filter(
+                    {betTypesForSport(sport).filter(
                       (option) => option.value !== "parlay",
                     ).map((option) => (
                       <SelectItem key={option.value} value={option.value}>
@@ -1425,10 +1430,17 @@ export default function Simulator() {
             value={profitBoost}
             onValueChange={setProfitBoost}
           />
+          {Number(profitBoost || 0) > 0 && effectiveOdds !== 0 && <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs">
+            <span className="text-muted-foreground">Odds improved from </span><span className="font-mono">{formatOdds(effectiveOdds)}</span><span className="mx-1">to</span><span className="rounded bg-amber-300 px-1.5 py-0.5 font-mono font-bold text-amber-950">{formatOdds(calculateBoostedOdds(effectiveOdds, Number(profitBoost)))}</span>
+          </div>}
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="mb-1.5 block text-xs font-mono uppercase text-muted-foreground">Bet Date</label><Input type="date" value={betDate} onChange={(event) => setBetDate(event.target.value)} /></div>
+            <div><label className="mb-1.5 block text-xs font-mono uppercase text-muted-foreground">Total Payout (optional)</label><Input type="number" min={Number(wager) || 0} step="0.01" placeholder={calculatedPayoutPreview ? calculatedPayoutPreview.toFixed(2) : "Auto"} value={payoutOverride} onChange={(event) => setPayoutOverride(event.target.value)} /></div>
+          </div>
           {wager && effectiveOdds !== 0 && (
             <div className="flex items-center justify-between rounded-lg border border-border bg-slate-50 px-3 py-2.5">
               <span className="text-xs font-mono uppercase text-muted-foreground">
-                Potential Payout
+                Total Payout
               </span>
               <span className="font-mono text-lg font-bold text-emerald-600">
                 {formatCurrency(potentialPayoutPreview)}
@@ -1749,21 +1761,7 @@ export default function Simulator() {
                 <label className="text-sm font-medium text-slate-700 block mb-1.5">
                   Sport
                 </label>
-                <Select
-                  value={configuredSport}
-                  onValueChange={setConfiguredSport}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {["NBA", "WNBA", "MLB", "NFL"].map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SportInput id="configured-sport" value={configuredSport} onChange={(value) => { setConfiguredSport(value); setConfiguredType(betTypesForSport(value)[0]?.value ?? "other"); }} />
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700 block mb-1.5">
@@ -1777,7 +1775,7 @@ export default function Simulator() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {BET_TYPE_OPTIONS.filter(
+                    {betTypesForSport(configuredSport).filter(
                       (option) => option.value !== "parlay",
                     ).map((option) => (
                       <SelectItem key={option.value} value={option.value}>
@@ -1793,6 +1791,10 @@ export default function Simulator() {
             value={configuredProfitBoost}
             onValueChange={setConfiguredProfitBoost}
           />
+          <div className="grid grid-cols-2 gap-3">
+            <div><label className="mb-1.5 block text-sm font-medium text-slate-700">Bet Date</label><Input type="date" value={configuredBetDate} onChange={(event) => setConfiguredBetDate(event.target.value)} /></div>
+            <div><label className="mb-1.5 block text-sm font-medium text-slate-700">Total Payout (optional)</label><Input type="number" min={Number(configuredWager) || 0} step="0.01" value={configuredPayoutOverride} onChange={(event) => setConfiguredPayoutOverride(event.target.value)} placeholder="Use calculated payout" /></div>
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             {deleteConfirm ? (
               <div className="flex items-center gap-2">

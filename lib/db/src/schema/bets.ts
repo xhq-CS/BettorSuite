@@ -14,6 +14,7 @@ export const betsTable = pgTable("bets", {
   parlayLegs: jsonb("parlay_legs").$type<Array<{ description: string; odds: number; sport: string; betType: string }>>().notNull().default([]),
   profitBoostPercent: numeric("profit_boost_percent").notNull().default("0"),
   potentialPayout: numeric("potential_payout").notNull(),
+  payoutOverride: numeric("payout_override"),
   actualPayout: numeric("actual_payout"),
   status: text("status").notNull().default("pending"), // pending, won, lost, push, void
   // False preserves the historical wallet behavior for bets created before wagers were reserved.
@@ -21,6 +22,7 @@ export const betsTable = pgTable("bets", {
   sport: text("sport"),
   playerName: text("player_name"),
   notes: text("notes"),
+  betDate: timestamp("bet_date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   settledAt: timestamp("settled_at"),

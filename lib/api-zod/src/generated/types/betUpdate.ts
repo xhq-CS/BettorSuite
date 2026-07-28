@@ -14,6 +14,9 @@ export interface BetUpdate {
   sportsbook?: string;
   sport?: string;
   notes?: string;
+  /** @nullable */
+  payoutOverride?: number | null;
+  betDate?: Date;
   /**
      * @minLength 3
      * @maxLength 160

@@ -104,7 +104,7 @@ export const DailyCardCard = memo(function DailyCardCard({
               </div>
               <div className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[9px] font-bold uppercase tracking-wider ${pick.status === "won" ? "bg-emerald-50 text-emerald-600" : pick.status === "lost" ? "bg-red-50 text-red-500" : pick.status === "pending" ? "bg-blue-50 text-blue-600" : "bg-slate-100 text-slate-500"}`}>
                   {pick.status === "pending" ? <Radio className="h-2.5 w-2.5" /> : null}
-                  {pick.status === "pending" ? "Open" : pick.status}
+                  {pick.status === "pending" ? "Pending" : pick.status}
               </div>
               {canTail && (
                 <Button

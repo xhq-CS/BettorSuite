@@ -28,10 +28,12 @@ export const simulatorBetsTable = pgTable("simulator_bets", {
   parlayLegs: jsonb("parlay_legs").$type<Array<{ description: string; odds: number; sport: string; betType: string }>>().notNull().default([]),
   profitBoostPercent: numeric("profit_boost_percent").notNull().default("0"),
   potentialPayout: numeric("potential_payout").notNull(),
+  payoutOverride: numeric("payout_override"),
   actualPayout: numeric("actual_payout"),
   status: text("status").notNull().default("pending"), // pending, won, lost, push
   sport: text("sport"),
   playerName: text("player_name"),
+  betDate: timestamp("bet_date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

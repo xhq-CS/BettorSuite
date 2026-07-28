@@ -21,6 +21,7 @@ export const dailyCardsTable = pgTable("daily_cards", {
     .$type<SharedBetSnapshot[]>()
     .notNull()
     .default([]),
+  sourceBetIds: jsonb("source_bet_ids").$type<number[]>().notNull().default([]),
   cardDate: timestamp("card_date").defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

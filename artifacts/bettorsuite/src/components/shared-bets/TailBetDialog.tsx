@@ -397,7 +397,7 @@ export function TailBetDialog({ bet, onClose }: TailBetDialogProps) {
             <ArrowRight className="h-4 w-4 text-slate-300" />
             <div className="text-right">
               <div className="text-[9px] font-bold uppercase tracking-wider text-slate-500">
-                Potential Payout
+                Total Payout
               </div>
               <div className="mt-0.5 font-mono text-sm font-bold text-slate-950">
                 {validWager && validOdds

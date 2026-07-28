@@ -42,13 +42,16 @@ export const ListBetsResponseItem = zod.object({
   "betType": zod.string()
 })).optional(),
   "profitBoostPercent": zod.number().optional(),
+  "boostedOdds": zod.number().optional(),
   "potentialPayout": zod.number().optional(),
+  "payoutOverride": zod.number().nullish(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push', 'void']),
   "sport": zod.string().nullish(),
   "playerName": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
+  "betDate": zod.string().optional(),
   "settledAt": zod.string().nullish()
 })
 export const ListBetsResponse = zod.array(ListBetsResponseItem)
@@ -80,6 +83,8 @@ export const CreateBetBody = zod.object({
   "betType": zod.string()
 })).min(createBetBodyParlayLegsMin).max(createBetBodyParlayLegsMax).optional(),
   "profitBoostPercent": zod.number().min(createBetBodyProfitBoostPercentMin).max(createBetBodyProfitBoostPercentMax).optional(),
+  "payoutOverride": zod.number().optional(),
+  "betDate": zod.coerce.date().optional(),
   "sport": zod.string().optional(),
   "playerName": zod.string().optional(),
   "notes": zod.string().optional()
@@ -104,13 +109,16 @@ export const CreateBetResponse = zod.object({
   "betType": zod.string()
 })).optional(),
   "profitBoostPercent": zod.number().optional(),
+  "boostedOdds": zod.number().optional(),
   "potentialPayout": zod.number().optional(),
+  "payoutOverride": zod.number().nullish(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push', 'void']),
   "sport": zod.string().nullish(),
   "playerName": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
+  "betDate": zod.string().optional(),
   "settledAt": zod.string().nullish()
 })
 
@@ -126,6 +134,9 @@ export const GetBetSummaryResponse = zod.object({
   "winRate": zod.number(),
   "totalWagered": zod.number(),
   "totalProfit": zod.number(),
+  "trackedProfit": zod.number().optional(),
+  "baselineAdjustment": zod.number().optional(),
+  "range": zod.enum(['today', 'week', 'month', 'all']).optional(),
   "roi": zod.number()
 })
 
@@ -147,7 +158,11 @@ export const GetTrackerWalletResponse = zod.object({
   "reason": zod.string().nullish(),
   "betId": zod.number().nullish(),
   "createdAt": zod.string()
-}))
+})),
+  "breakEvenEnabled": zod.boolean().optional(),
+  "breakEvenBalance": zod.number().nullish(),
+  "breakEvenAdjustment": zod.number().optional(),
+  "breakEvenSetAt": zod.string().nullish()
 })
 
 
@@ -183,7 +198,11 @@ export const CreateTrackerWalletTransactionResponse = zod.object({
   "reason": zod.string().nullish(),
   "betId": zod.number().nullish(),
   "createdAt": zod.string()
-}))
+})),
+  "breakEvenEnabled": zod.boolean().optional(),
+  "breakEvenBalance": zod.number().nullish(),
+  "breakEvenAdjustment": zod.number().optional(),
+  "breakEvenSetAt": zod.string().nullish()
 })
 
 
@@ -206,6 +225,8 @@ export const UpdateBetBody = zod.object({
   "sportsbook": zod.string().optional(),
   "sport": zod.string().optional(),
   "notes": zod.string().optional(),
+  "payoutOverride": zod.number().nullish(),
+  "betDate": zod.coerce.date().optional(),
   "correctionReason": zod.string().min(updateBetBodyCorrectionReasonMin).max(updateBetBodyCorrectionReasonMax).optional()
 })
 
@@ -228,13 +249,16 @@ export const UpdateBetResponse = zod.object({
   "betType": zod.string()
 })).optional(),
   "profitBoostPercent": zod.number().optional(),
+  "boostedOdds": zod.number().optional(),
   "potentialPayout": zod.number().optional(),
+  "payoutOverride": zod.number().nullish(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push', 'void']),
   "sport": zod.string().nullish(),
   "playerName": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
+  "betDate": zod.string().optional(),
   "settledAt": zod.string().nullish()
 })
 
@@ -321,12 +345,15 @@ export const ListSimulatorBetsResponseItem = zod.object({
   "betType": zod.string()
 })).optional(),
   "profitBoostPercent": zod.number().optional(),
+  "boostedOdds": zod.number().optional(),
   "potentialPayout": zod.number(),
+  "payoutOverride": zod.number().nullish(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push']),
   "sport": zod.string().nullish(),
   "playerName": zod.string().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "betDate": zod.string().optional()
 })
 export const ListSimulatorBetsResponse = zod.array(ListSimulatorBetsResponseItem)
 
@@ -356,6 +383,8 @@ export const CreateSimulatorBetBody = zod.object({
   "betType": zod.string()
 })).min(createSimulatorBetBodyParlayLegsMin).max(createSimulatorBetBodyParlayLegsMax).optional(),
   "profitBoostPercent": zod.number().min(createSimulatorBetBodyProfitBoostPercentMin).max(createSimulatorBetBodyProfitBoostPercentMax).optional(),
+  "payoutOverride": zod.number().optional(),
+  "betDate": zod.coerce.date().optional(),
   "sport": zod.string().optional(),
   "playerName": zod.string().optional()
 })
@@ -378,12 +407,15 @@ export const CreateSimulatorBetResponse = zod.object({
   "betType": zod.string()
 })).optional(),
   "profitBoostPercent": zod.number().optional(),
+  "boostedOdds": zod.number().optional(),
   "potentialPayout": zod.number(),
+  "payoutOverride": zod.number().nullish(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push']),
   "sport": zod.string().nullish(),
   "playerName": zod.string().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "betDate": zod.string().optional()
 })
 
 
@@ -395,7 +427,7 @@ export const SettleSimulatorBetParams = zod.object({
 })
 
 export const SettleSimulatorBetBody = zod.object({
-  "status": zod.enum(['won', 'lost', 'push'])
+  "status": zod.enum(['pending', 'won', 'lost', 'push'])
 })
 
 export const settleSimulatorBetResponseParlayLegsItemDescriptionMax = 160;
@@ -416,12 +448,15 @@ export const SettleSimulatorBetResponse = zod.object({
   "betType": zod.string()
 })).optional(),
   "profitBoostPercent": zod.number().optional(),
+  "boostedOdds": zod.number().optional(),
   "potentialPayout": zod.number(),
+  "payoutOverride": zod.number().nullish(),
   "actualPayout": zod.number().nullish(),
   "status": zod.enum(['pending', 'won', 'lost', 'push']),
   "sport": zod.string().nullish(),
   "playerName": zod.string().nullish(),
-  "createdAt": zod.string()
+  "createdAt": zod.string(),
+  "betDate": zod.string().optional()
 })
 
 

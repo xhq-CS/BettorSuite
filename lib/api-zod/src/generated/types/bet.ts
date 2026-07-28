@@ -19,7 +19,10 @@ export interface Bet {
   odds: number;
   parlayLegs?: ParlayLeg[];
   profitBoostPercent?: number;
+  boostedOdds?: number;
   potentialPayout?: number;
+  /** @nullable */
+  payoutOverride?: number | null;
   /** @nullable */
   actualPayout?: number | null;
   status: BetStatus;
@@ -30,6 +33,7 @@ export interface Bet {
   /** @nullable */
   notes?: string | null;
   createdAt: string;
+  betDate?: string;
   /** @nullable */
   settledAt?: string | null;
 }

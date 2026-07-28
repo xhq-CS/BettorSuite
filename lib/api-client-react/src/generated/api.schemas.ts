@@ -42,7 +42,10 @@ export interface Bet {
   odds: number;
   parlayLegs?: ParlayLeg[];
   profitBoostPercent?: number;
+  boostedOdds?: number;
   potentialPayout?: number;
+  /** @nullable */
+  payoutOverride?: number | null;
   /** @nullable */
   actualPayout?: number | null;
   status: BetStatus;
@@ -53,6 +56,7 @@ export interface Bet {
   /** @nullable */
   notes?: string | null;
   createdAt: string;
+  betDate?: string;
   /** @nullable */
   settledAt?: string | null;
 }
@@ -73,6 +77,8 @@ export interface BetInput {
      * @maximum 1000
      */
   profitBoostPercent?: number;
+  payoutOverride?: number;
+  betDate?: string;
   sport?: string;
   playerName?: string;
   notes?: string;
@@ -96,6 +102,9 @@ export interface BetUpdate {
   sportsbook?: string;
   sport?: string;
   notes?: string;
+  /** @nullable */
+  payoutOverride?: number | null;
+  betDate?: string;
   /**
      * @minLength 3
      * @maxLength 160
@@ -130,6 +139,12 @@ export interface TrackerWallet {
   reconciliationLimit: number;
   reconciliationResetsAt: string;
   transactions: TrackerWalletTransaction[];
+  breakEvenEnabled?: boolean;
+  /** @nullable */
+  breakEvenBalance?: number | null;
+  breakEvenAdjustment?: number;
+  /** @nullable */
+  breakEvenSetAt?: string | null;
 }
 
 export type TrackerWalletTransactionInputType = typeof TrackerWalletTransactionInputType[keyof typeof TrackerWalletTransactionInputType];
@@ -151,6 +166,16 @@ export interface TrackerWalletTransactionInput {
   reason?: string;
 }
 
+export type BetSummaryRange = typeof BetSummaryRange[keyof typeof BetSummaryRange];
+
+
+export const BetSummaryRange = {
+  today: 'today',
+  week: 'week',
+  month: 'month',
+  all: 'all',
+} as const;
+
 export interface BetSummary {
   totalBets: number;
   wins: number;
@@ -159,6 +184,9 @@ export interface BetSummary {
   winRate: number;
   totalWagered: number;
   totalProfit: number;
+  trackedProfit?: number;
+  baselineAdjustment?: number;
+  range?: BetSummaryRange;
   roi: number;
 }
 
@@ -208,7 +236,10 @@ export interface SimulatorBet {
   odds: number;
   parlayLegs?: ParlayLeg[];
   profitBoostPercent?: number;
+  boostedOdds?: number;
   potentialPayout: number;
+  /** @nullable */
+  payoutOverride?: number | null;
   /** @nullable */
   actualPayout?: number | null;
   status: SimulatorBetStatus;
@@ -217,6 +248,7 @@ export interface SimulatorBet {
   /** @nullable */
   playerName?: string | null;
   createdAt: string;
+  betDate?: string;
 }
 
 export interface SimulatorBetInput {
@@ -234,6 +266,8 @@ export interface SimulatorBetInput {
      * @maximum 1000
      */
   profitBoostPercent?: number;
+  payoutOverride?: number;
+  betDate?: string;
   sport?: string;
   playerName?: string;
 }
@@ -242,6 +276,7 @@ export type SimulatorBetSettleStatus = typeof SimulatorBetSettleStatus[keyof typ
 
 
 export const SimulatorBetSettleStatus = {
+  pending: 'pending',
   won: 'won',
   lost: 'lost',
   push: 'push',

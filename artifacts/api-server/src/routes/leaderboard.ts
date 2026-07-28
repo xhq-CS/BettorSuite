@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, usersTable, betsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { localDateKey } from "../lib/localDates";
 
 export const leaderboardRouter = Router();
 
@@ -35,19 +36,16 @@ leaderboardRouter.get("/", async (_req, res) => {
         );
         const profitByDay = new Map<string, number>();
         settled.forEach((bet) => {
-          const day = (bet.settledAt ?? bet.createdAt)
-            .toISOString()
-            .slice(0, 10);
+          const day = localDateKey(bet.betDate);
           profitByDay.set(day, (profitByDay.get(day) ?? 0) + resultProfit(bet));
         });
-        const weekStart = new Date();
-        weekStart.setUTCHours(0, 0, 0, 0);
-        const daysSinceMonday = (weekStart.getUTCDay() + 6) % 7;
-        weekStart.setUTCDate(weekStart.getUTCDate() - daysSinceMonday);
+        const weekStart = new Date(`${localDateKey(new Date())}T12:00:00`);
+        const daysSinceMonday = (weekStart.getDay() + 6) % 7;
+        weekStart.setDate(weekStart.getDate() - daysSinceMonday);
         const streak = Array.from({ length: 7 }, (_, index) => {
           const day = new Date(weekStart);
-          day.setUTCDate(weekStart.getUTCDate() + index);
-          const date = day.toISOString().slice(0, 10);
+          day.setDate(weekStart.getDate() + index);
+          const date = localDateKey(day);
           const profit =
             Math.round(((profitByDay.get(date) ?? 0) + Number.EPSILON) * 100) /
             100;

@@ -3,21 +3,14 @@
 All notable BettorSuite releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
-## [2.5.2] - 2026-07-28
-
-### Fixed
-
-- Replaced the scaled raster trophy with a crisp native SVG so the winner seal remains sharp at every responsive size.
-- Centered the trophy inside the gold medallion and removed the surrounding sparkles.
-- Removed the obsolete winner-trophy bitmap from the production bundle.
-
-## [2.5.1] - 2026-07-28
+## [2.5.3] - 2026-07-28
 
 ### Improved
 
-- Replaced the small winning trophy with a larger, layered gold winner seal featuring an inset ring, stronger depth, and a compact WINNER ribbon.
-- Increased visibility on desktop and mobile while reserving space so dates, statuses, and bet details remain readable.
-- Applied the updated treatment consistently to Book Keeper and Mock Betting histories.
+- Restored an explicit dropdown for every supported league and sport alongside a separate optional custom-entry field.
+- Replaced the small winning trophy with a larger, layered gold winner seal while preserving readable bet details across desktop and mobile.
+- Replaced the scaled raster artwork with a crisp, centered native SVG trophy and removed the surrounding sparkles and obsolete bitmap asset.
+- Applied the updated bet-entry and winner treatments consistently to Book Keeper and Mock Betting.
 
 ## [2.5.0] - 2026-07-28
 
@@ -206,8 +199,7 @@ The first deployable BettorStats release replaced manual betting records with on
 - Community foundations with groups, group chat, the public War Room, and leaderboard.
 - Admin login and production-ready Vercel routing, API bundling, security headers, and database configuration.
 
-[2.5.2]: https://github.com/xhq-CS/BettorSuite/compare/v2.5.1...v2.5.2
-[2.5.1]: https://github.com/xhq-CS/BettorSuite/compare/v2.5.0...v2.5.1
+[2.5.3]: https://github.com/xhq-CS/BettorSuite/compare/v2.5.0...v2.5.3
 [2.5.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.3.0...v2.4.0
 [2.3.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.2.0...v2.3.0

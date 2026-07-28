@@ -4,7 +4,7 @@
 
 BettorSuite is an all-in-one sportsbook journal, mock betting workspace, and social community. It replaces manual paper tracking with private account data, consistent performance analytics, shareable picks, and conversations built around the bets themselves.
 
-**Current version:** `v2.5.2`
+**Current version:** `v2.5.3`
 
 ## What is in v2
 
@@ -18,13 +18,9 @@ BettorSuite is an all-in-one sportsbook journal, mock betting workspace, and soc
 
 ## Release history
 
-### v2.5.2 - Crisp winner trophy
+### v2.5.3 - Clearer bet entry and winner polish
 
-This visual fix replaces the raster trophy artwork with a centered native SVG trophy, removes the distracting sparkles and scaling blur, and deletes the obsolete bitmap asset while preserving the layered gold winner seal.
-
-### v2.5.1 - Winner-seal polish
-
-This visual patch replaces the small winner trophy with a larger, more distinctive BettorSuite winner seal. The new treatment combines a layered gold medallion, inset ring, trophy artwork, depth, and a compact WINNER ribbon while preserving readable bet details across desktop and mobile Book Keeper and Mock Betting histories.
+This consolidated interface patch gives bet entry an explicit league and sport dropdown alongside optional custom text. It also replaces the small raster winner artwork with a larger layered gold seal and a crisp, centered native SVG trophy—without sparkles or scaling blur—across desktop and mobile Book Keeper and Mock Betting histories.
 
 ### v2.5.0 - Moderation and interface polish
 
@@ -112,7 +108,7 @@ BettorSuite uses semantic versioning:
 - `MINOR` for backward-compatible features.
 - `PATCH` for backward-compatible fixes and polish.
 
-The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.5.2`.
+The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.5.3`.
 
 ## Privacy
 

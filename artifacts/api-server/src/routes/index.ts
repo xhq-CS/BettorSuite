@@ -13,6 +13,7 @@ import { dailyCardsRouter } from "./dailyCards";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/auth";
 import { adminRouter } from "./admin";
+import { presenceRouter } from "./presence";
 
 const router = Router();
 
@@ -20,6 +21,7 @@ router.use("/", healthRouter);
 router.use("/auth", authRouter);
 router.use(requireAuth);
 router.use("/admin", requireAdmin, adminRouter);
+router.use("/presence", presenceRouter);
 router.use("/bets", betsRouter);
 router.use("/simulator", simulatorRouter);
 router.use("/posts", postsRouter);

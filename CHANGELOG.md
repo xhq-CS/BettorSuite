@@ -3,6 +3,18 @@
 All notable BettorSuite releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [2.6.0] - 2026-07-31
+
+### Bug Fixes
+
+- Fixed private nickname persistence with an atomic database update and ensured each nickname is visible only to its creator across profiles, search, Direct Messages, groups, the War Room, and leaderboard views.
+
+### Quality of Life
+
+- Added Delivered and Read receipts to the latest outgoing Direct Message; Delivered confirms server persistence and Read confirms the recipient opened the conversation.
+- Added Online, Idle, and Offline avatar indicators to profiles, follower lists, community search, leaderboard, Direct Messages, groups, and the War Room.
+- Added activity-aware presence heartbeats, a 25-minute idle threshold, explicit logout and page-exit handling, and a server-side stale-session fallback.
+
 ## [2.5.3] - 2026-07-28
 
 ### Improved
@@ -200,6 +212,7 @@ The first deployable BettorStats release replaced manual betting records with on
 - Community foundations with groups, group chat, the public War Room, and leaderboard.
 - Admin login and production-ready Vercel routing, API bundling, security headers, and database configuration.
 
+[2.6.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.5.3...v2.6.0
 [2.5.3]: https://github.com/xhq-CS/BettorSuite/compare/v2.5.0...v2.5.3
 [2.5.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.4.0...v2.5.0
 [2.4.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.3.0...v2.4.0

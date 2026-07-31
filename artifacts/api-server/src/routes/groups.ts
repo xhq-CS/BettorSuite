@@ -15,6 +15,8 @@ import {
   isPlatformAdmin,
   POSTING_DISABLED_MESSAGE,
 } from "../lib/moderation";
+import { resolvedPresence } from "../lib/presence";
+import { privateNicknameMap } from "../lib/socialIdentity";
 
 export const groupsRouter = Router();
 const uid = (req: unknown) => (req as AuthRequest).userId;
@@ -217,6 +219,10 @@ groupsRouter.get("/:id", async (req, res) => {
     .select({
       userId: groupMembersTable.userId,
       username: usersTable.username,
+      displayName: usersTable.displayName,
+      avatarUrl: usersTable.avatarUrl,
+      presenceStatus: usersTable.presenceStatus,
+      presenceUpdatedAt: usersTable.presenceUpdatedAt,
       role: groupMembersTable.role,
       muted: groupMembersTable.muted,
       mutedAt: groupMembersTable.mutedAt,
@@ -230,6 +236,10 @@ groupsRouter.get("/:id", async (req, res) => {
   const platformAdmin = await isPlatformAdmin(userId);
   const isOwner = group.creatorId === userId || mine?.role === "admin";
   const canManage = isOwner || platformAdmin;
+  const nicknames = await privateNicknameMap(
+    userId,
+    members.map((member) => member.userId),
+  );
   const invites = canManage
     ? await db
         .select({
@@ -258,6 +268,14 @@ groupsRouter.get("/:id", async (req, res) => {
     role: mine?.role ?? null,
     members: members.map((member) => ({
       ...member,
+      displayName: member.displayName ?? null,
+      avatarUrl: member.avatarUrl ?? null,
+      nickname: nicknames.get(member.userId) ?? null,
+      presenceStatus: resolvedPresence(
+        member.presenceStatus,
+        member.presenceUpdatedAt,
+      ),
+      presenceUpdatedAt: undefined,
       muted: canManage ? member.muted : false,
       mutedAt: canManage ? member.mutedAt : null,
       joinedAt: member.joinedAt.toISOString(),
@@ -397,6 +415,9 @@ groupsRouter.get("/:id/messages", async (req, res) => {
       id: groupMessagesTable.id,
       senderId: groupMessagesTable.senderId,
       senderUsername: usersTable.username,
+      senderAvatarUrl: usersTable.avatarUrl,
+      senderPresenceStatus: usersTable.presenceStatus,
+      senderPresenceUpdatedAt: usersTable.presenceUpdatedAt,
       content: groupMessagesTable.content,
       betShare: groupMessagesTable.betShare,
       dailyCardId: groupMessagesTable.dailyCardId,
@@ -408,6 +429,10 @@ groupsRouter.get("/:id/messages", async (req, res) => {
     .where(eq(groupMessagesTable.groupId, groupId))
     .orderBy(groupMessagesTable.createdAt)
     .limit(200);
+  const nicknames = await privateNicknameMap(
+    userId,
+    rows.map((message) => message.senderId),
+  );
   await db
     .update(groupMembersTable)
     .set({ lastReadAt: sql`now()` })
@@ -416,6 +441,12 @@ groupsRouter.get("/:id/messages", async (req, res) => {
     await Promise.all(
       rows.map(async (m) => ({
         ...m,
+        senderNickname: nicknames.get(m.senderId) ?? null,
+        senderPresenceStatus: resolvedPresence(
+          m.senderPresenceStatus,
+          m.senderPresenceUpdatedAt,
+        ),
+        senderPresenceUpdatedAt: undefined,
         betShare: m.betShare ?? null,
         dailyCard: await getDailyCard(m.dailyCardId),
         createdAt: m.createdAt.toISOString(),

@@ -1,8 +1,10 @@
 import React from "react";
 import { Sidebar } from "./Sidebar";
 import { MobileNavigation } from "./MobileNavigation";
+import { usePresenceHeartbeat } from "@/hooks/use-presence-heartbeat";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
+  usePresenceHeartbeat();
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-background relative selection:bg-primary/30">
       {/* Background grid texture */}

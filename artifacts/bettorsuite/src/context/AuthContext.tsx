@@ -14,7 +14,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string) => setUser(await api<Account>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }));
   const adminLogin = async (email: string, password: string) => setUser(await api<Account>("/auth/admin-login", { method: "POST", body: JSON.stringify({ email, password }) }));
   const register = async (email: string, username: string, password: string) => setUser(await api<Account>("/auth/register", { method: "POST", body: JSON.stringify({ email, username, password }) }));
-  const logout = async () => { await api("/auth/logout", { method: "POST" }); setUser(null); };
+  const logout = async () => {
+    await api("/presence", {
+      method: "POST",
+      body: JSON.stringify({ status: "offline" }),
+    }).catch(() => undefined);
+    await api("/auth/logout", { method: "POST" });
+    setUser(null);
+  };
   return <AuthContext.Provider value={{ user, loading, login, adminLogin, register, logout }}>{children}</AuthContext.Provider>;
 }
 

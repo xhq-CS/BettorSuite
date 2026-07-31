@@ -31,6 +31,7 @@ import { DailyCardDialog } from "@/components/daily-cards/DailyCardDialog";
 import { SendPickDialog } from "@/components/messages/SendPickDialog";
 import { GroupInboxList } from "@/components/messages/GroupInboxList";
 import type { Conversation, DirectMessage } from "@/lib/social-types";
+import { PresenceIndicator, type PresenceStatus } from "@/components/PresenceIndicator";
 
 interface SearchUser {
   id: number;
@@ -38,6 +39,8 @@ interface SearchUser {
   displayName: string | null;
   avatarUrl: string | null;
   isFollowing: boolean;
+  nickname: string | null;
+  presenceStatus: PresenceStatus;
 }
 
 export default function DirectMessages() {
@@ -79,6 +82,9 @@ export default function DirectMessages() {
     enabled: Boolean(activeId),
     refetchInterval: activeId ? 3000 : false,
   });
+  const latestOwnMessageId = [...(messages.data ?? [])]
+    .reverse()
+    .find((item) => item.senderId === user?.id)?.id;
   const people = useQuery({
     queryKey: ["dm-people-search", search],
     queryFn: () =>
@@ -220,9 +226,9 @@ export default function DirectMessages() {
                   <div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-1.5">
                     {people.data?.map((person) => (
                       <div key={person.id} className="flex items-center gap-2 rounded-lg p-2 hover:bg-slate-50">
-                        <Avatar className="h-8 w-8"><AvatarImage src={person.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[9px]">{person.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
+                        <span className="relative inline-flex"><Avatar className="h-8 w-8"><AvatarImage src={person.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[9px]">{person.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={person.presenceStatus} /></span>
                         <button type="button" onClick={() => startConversation.mutate(person.id)} className="min-w-0 flex-1 text-left">
-                          <div className="truncate text-sm font-semibold">{person.displayName || person.username}</div>
+                          <div className="truncate text-sm font-semibold">{person.nickname || person.displayName || person.username}</div>
                           <div className="truncate text-[10px] text-slate-500">@{person.username}</div>
                         </button>
                         <Button type="button" size="sm" variant={person.isFollowing ? "secondary" : "default"} className="h-8 shrink-0 rounded-full px-3 text-[11px]" aria-label={person.isFollowing ? `Unfollow @${person.username}` : `Follow @${person.username}`} onClick={() => follow.mutate(person)}>
@@ -252,13 +258,16 @@ export default function DirectMessages() {
                     onClick={() => setActiveId(conversation.id)}
                     className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors ${activeId === conversation.id ? "bg-blue-50 ring-1 ring-blue-100" : "hover:bg-slate-50"}`}
                   >
-                    <Avatar className="h-11 w-11 border border-slate-200">
-                      <AvatarImage src={conversation.participantAvatarUrl ?? undefined} alt="" />
-                      <AvatarFallback className="text-xs font-bold">{conversation.participantUsername.slice(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
+                    <span className="relative inline-flex">
+                      <Avatar className="h-11 w-11 border border-slate-200">
+                        <AvatarImage src={conversation.participantAvatarUrl ?? undefined} alt="" />
+                        <AvatarFallback className="text-xs font-bold">{conversation.participantUsername.slice(0, 2).toUpperCase()}</AvatarFallback>
+                      </Avatar>
+                      <PresenceIndicator status={conversation.participantPresenceStatus} />
+                    </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-bold text-slate-900">{conversation.participantDisplayName || conversation.participantUsername}</span>
+                        <span className="truncate text-sm font-bold text-slate-900">{conversation.participantNickname || conversation.participantDisplayName || conversation.participantUsername}</span>
                         {conversation.notificationsMuted ? (
                           <BellOff className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-label="DM notifications muted" />
                         ) : conversation.unreadCount > 0 ? (
@@ -286,8 +295,8 @@ export default function DirectMessages() {
             <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
               <Link href={activeConversation ? `/profile/${activeConversation.participantId}` : "/messages"}>
                 <div className="flex cursor-pointer items-center gap-3">
-                  <Avatar className="h-9 w-9"><AvatarImage src={activeConversation?.participantAvatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[10px]">{activeConversation?.participantUsername.slice(0, 2).toUpperCase() || "DM"}</AvatarFallback></Avatar>
-                  <div><div className="text-sm font-bold">{activeConversation?.participantDisplayName || activeConversation?.participantUsername || "Conversation"}</div><div className="text-[10px] text-slate-500">Private · 1 on 1</div></div>
+                  <span className="relative inline-flex"><Avatar className="h-9 w-9"><AvatarImage src={activeConversation?.participantAvatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[10px]">{activeConversation?.participantUsername.slice(0, 2).toUpperCase() || "DM"}</AvatarFallback></Avatar><PresenceIndicator status={activeConversation?.participantPresenceStatus} /></span>
+                  <div><div className="text-sm font-bold">{activeConversation?.participantNickname || activeConversation?.participantDisplayName || activeConversation?.participantUsername || "Conversation"}</div><PresenceIndicator status={activeConversation?.participantPresenceStatus} showLabel /></div>
                 </div>
               </Link>
               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -350,7 +359,7 @@ export default function DirectMessages() {
                           )
                         )}
                       </div>
-                      <div className="mt-1 px-2 text-[10px] text-slate-400">{new Date(item.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{item.editedAt && <span className="ml-1 italic">(edited)</span>}</div>
+                      <div className="mt-1 px-2 text-[10px] text-slate-400">{new Date(item.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{item.editedAt && <span className="ml-1 italic">(edited)</span>}{mine && item.id === latestOwnMessageId && item.deliveryStatus && <span className={`ml-1.5 font-semibold ${item.deliveryStatus === "read" ? "text-blue-500" : "text-slate-400"}`}>· {item.deliveryStatus === "read" ? "Read" : "Delivered"}</span>}</div>
                     </div>
                   </div>
                 );

@@ -16,6 +16,8 @@ import {
   POSTING_DISABLED_MESSAGE,
   warRoomPostingStatus,
 } from "../lib/moderation";
+import { resolvedPresence } from "../lib/presence";
+import { privateNicknameMap } from "../lib/socialIdentity";
 
 export const postsRouter = Router();
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
@@ -32,6 +34,8 @@ postsRouter.get("/", async (req, res) => {
       userId: postsTable.userId,
       username: usersTable.username,
       avatarUrl: usersTable.avatarUrl,
+      presenceStatus: usersTable.presenceStatus,
+      presenceUpdatedAt: usersTable.presenceUpdatedAt,
       authorMuted: usersTable.warRoomMuted,
       content: postsTable.content,
       sport: postsTable.sport,
@@ -78,6 +82,10 @@ postsRouter.get("/", async (req, res) => {
 
   const likeCountMap = new Map(likeCounts.map((l) => [l.postId, l.count]));
   const likedSet = new Set(userLikes.map((l) => l.postId));
+  const nicknames = await privateNicknameMap(
+    currentUserId(req),
+    items.map((post) => post.userId),
+  );
 
   const viewerPosting = await warRoomPostingStatus(currentUserId(req));
   res.json({
@@ -87,6 +95,8 @@ postsRouter.get("/", async (req, res) => {
       userId: p.userId,
       username: p.username ?? "Unknown",
       avatarUrl: p.avatarUrl ?? null,
+      nickname: nicknames.get(p.userId) ?? null,
+      presenceStatus: resolvedPresence(p.presenceStatus, p.presenceUpdatedAt),
       authorMuted: viewerPosting.isAdmin ? Boolean(p.authorMuted) : false,
       content: p.content,
       likeCount: likeCountMap.get(p.id) ?? 0,
@@ -122,7 +132,12 @@ postsRouter.post("/", async (req, res) => {
     .returning();
 
   const [user] = await db
-    .select({ username: usersTable.username, avatarUrl: usersTable.avatarUrl })
+    .select({
+      username: usersTable.username,
+      avatarUrl: usersTable.avatarUrl,
+      presenceStatus: usersTable.presenceStatus,
+      presenceUpdatedAt: usersTable.presenceUpdatedAt,
+    })
     .from(usersTable)
     .where(eq(usersTable.id, currentUserId(req)));
 
@@ -131,6 +146,11 @@ postsRouter.post("/", async (req, res) => {
     userId: post.userId,
     username: user?.username ?? "Unknown",
     avatarUrl: user?.avatarUrl ?? null,
+    nickname: null,
+    presenceStatus: resolvedPresence(
+      user?.presenceStatus,
+      user?.presenceUpdatedAt,
+    ),
     content: post.content,
     likeCount: 0,
     liked: false,
@@ -178,6 +198,8 @@ postsRouter.get("/:id", async (req, res) => {
       userId: postsTable.userId,
       username: usersTable.username,
       avatarUrl: usersTable.avatarUrl,
+      presenceStatus: usersTable.presenceStatus,
+      presenceUpdatedAt: usersTable.presenceUpdatedAt,
       content: postsTable.content,
       sport: postsTable.sport,
       playerTag: postsTable.playerTag,
@@ -191,6 +213,7 @@ postsRouter.get("/:id", async (req, res) => {
     .where(eq(postsTable.id, id));
 
   if (!post) return void res.status(404).json({ error: "Post not found" });
+  const nicknames = await privateNicknameMap(currentUserId(req), [post.userId]);
 
   const [likeCount] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -212,6 +235,11 @@ postsRouter.get("/:id", async (req, res) => {
     userId: post.userId,
     username: post.username ?? "Unknown",
     avatarUrl: post.avatarUrl ?? null,
+    nickname: nicknames.get(post.userId) ?? null,
+    presenceStatus: resolvedPresence(
+      post.presenceStatus,
+      post.presenceUpdatedAt,
+    ),
     content: post.content,
     likeCount: likeCount?.count ?? 0,
     liked: !!userLike,

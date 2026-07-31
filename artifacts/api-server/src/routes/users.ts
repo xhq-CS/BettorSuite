@@ -25,6 +25,7 @@ import { getDailyCard } from "../lib/dailyCards";
 import { localDateKey } from "../lib/localDates";
 import { purgeAccountData } from "../lib/accountPurge";
 import { verifyPassword } from "../lib/passwords";
+import { resolvedPresence } from "../lib/presence";
 
 export const usersRouter = Router();
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
@@ -111,6 +112,7 @@ async function formatUser(
     bio: u.bio ?? null,
     avatarUrl: u.avatarUrl ?? null,
     favoriteSport: u.favoriteSport ?? null,
+    presenceStatus: resolvedPresence(u.presenceStatus, u.presenceUpdatedAt),
     followersCount: followersCount ?? 0,
     followingCount: followingCount ?? 0,
     isFollowing,
@@ -211,13 +213,14 @@ usersRouter.put("/:id/nickname", async (req, res) => {
     eq(followsTable.followingId, targetUserId),
   ));
   if (!follow) return void res.status(403).json({ error: "Follow this person before adding a private nickname" });
-  const [existing] = await db.select().from(userNicknamesTable).where(and(
-    eq(userNicknamesTable.ownerId, ownerId),
-    eq(userNicknamesTable.targetUserId, targetUserId),
-  ));
-  const [saved] = existing
-    ? await db.update(userNicknamesTable).set({ nickname, updatedAt: new Date() }).where(eq(userNicknamesTable.id, existing.id)).returning()
-    : await db.insert(userNicknamesTable).values({ ownerId, targetUserId, nickname }).returning();
+  const [saved] = await db
+    .insert(userNicknamesTable)
+    .values({ ownerId, targetUserId, nickname })
+    .onConflictDoUpdate({
+      target: [userNicknamesTable.ownerId, userNicknamesTable.targetUserId],
+      set: { nickname, updatedAt: new Date() },
+    })
+    .returning();
   return res.json(saved);
 });
 

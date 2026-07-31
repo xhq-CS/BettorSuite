@@ -9,6 +9,8 @@ import {
 } from "@workspace/db";
 import type { AuthRequest } from "../middleware/auth";
 import { getDailyCard } from "../lib/dailyCards";
+import { resolvedPresence } from "../lib/presence";
+import { privateNicknameMap } from "../lib/socialIdentity";
 
 export const conversationsRouter = Router();
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
@@ -26,7 +28,11 @@ async function participant(conversationId: number, userId: number) {
   return row;
 }
 
-async function formatMessage(message: typeof messagesTable.$inferSelect) {
+async function formatMessage(
+  message: typeof messagesTable.$inferSelect,
+  viewerId: number,
+  recipientLastReadAt?: Date | null,
+) {
   const [sender, dailyCard] = await Promise.all([
     db
       .select({ username: usersTable.username, avatarUrl: usersTable.avatarUrl })
@@ -46,6 +52,12 @@ async function formatMessage(message: typeof messagesTable.$inferSelect) {
     dailyCard,
     createdAt: message.createdAt.toISOString(),
     editedAt: message.editedAt?.toISOString() ?? null,
+    deliveryStatus:
+      message.senderId === viewerId
+        ? recipientLastReadAt && recipientLastReadAt >= message.createdAt
+          ? "read"
+          : "delivered"
+        : null,
   };
 }
 
@@ -70,6 +82,8 @@ conversationsRouter.get("/", async (req, res) => {
             username: usersTable.username,
             displayName: usersTable.displayName,
             avatarUrl: usersTable.avatarUrl,
+            presenceStatus: usersTable.presenceStatus,
+            presenceUpdatedAt: usersTable.presenceUpdatedAt,
           })
           .from(conversationParticipantsTable)
           .innerJoin(
@@ -107,6 +121,10 @@ conversationsRouter.get("/", async (req, res) => {
         participantUsername: other.username,
         participantDisplayName: other.displayName ?? null,
         participantAvatarUrl: other.avatarUrl ?? null,
+        participantPresenceStatus: resolvedPresence(
+          other.presenceStatus,
+          other.presenceUpdatedAt,
+        ),
         lastMessage: lastMessage
           ? lastMessage.dailyCardId
             ? "Shared a daily card"
@@ -120,12 +138,20 @@ conversationsRouter.get("/", async (req, res) => {
       };
     }),
   );
+  const formatted = conversations
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .sort((a, b) =>
+      String(b.lastMessageAt ?? "").localeCompare(String(a.lastMessageAt ?? "")),
+    );
+  const nicknames = await privateNicknameMap(
+    userId,
+    formatted.map((item) => item.participantId),
+  );
   return res.json(
-    conversations
-      .filter((item): item is NonNullable<typeof item> => Boolean(item))
-      .sort((a, b) =>
-        String(b.lastMessageAt ?? "").localeCompare(String(a.lastMessageAt ?? "")),
-      ),
+    formatted.map((item) => ({
+      ...item,
+      participantNickname: nicknames.get(item.participantId) ?? null,
+    })),
   );
 });
 
@@ -194,6 +220,16 @@ conversationsRouter.get("/:id/messages", async (req, res) => {
     .where(eq(messagesTable.conversationId, conversationId))
     .orderBy(messagesTable.createdAt)
     .limit(300);
+  const [recipient] = await db
+    .select({ lastReadAt: conversationParticipantsTable.lastReadAt })
+    .from(conversationParticipantsTable)
+    .where(
+      and(
+        eq(conversationParticipantsTable.conversationId, conversationId),
+        ne(conversationParticipantsTable.userId, userId),
+      ),
+    )
+    .limit(1);
   await db
     .update(conversationParticipantsTable)
     .set({ lastReadAt: sql`now()` })
@@ -203,7 +239,13 @@ conversationsRouter.get("/:id/messages", async (req, res) => {
         eq(conversationParticipantsTable.userId, userId),
       ),
     );
-  return res.json(await Promise.all(rows.map(formatMessage)));
+  return res.json(
+    await Promise.all(
+      rows.map((message) =>
+        formatMessage(message, userId, recipient?.lastReadAt),
+      ),
+    ),
+  );
 });
 
 conversationsRouter.post("/:id/messages", async (req, res) => {
@@ -218,7 +260,19 @@ conversationsRouter.post("/:id/messages", async (req, res) => {
     .insert(messagesTable)
     .values({ conversationId, senderId: userId, content })
     .returning();
-  return res.status(201).json(await formatMessage(message));
+  const [recipient] = await db
+    .select({ lastReadAt: conversationParticipantsTable.lastReadAt })
+    .from(conversationParticipantsTable)
+    .where(
+      and(
+        eq(conversationParticipantsTable.conversationId, conversationId),
+        ne(conversationParticipantsTable.userId, userId),
+      ),
+    )
+    .limit(1);
+  return res
+    .status(201)
+    .json(await formatMessage(message, userId, recipient?.lastReadAt));
 });
 
 conversationsRouter.patch("/:id/messages/:messageId", async (req, res) => {
@@ -246,7 +300,17 @@ conversationsRouter.patch("/:id/messages/:messageId", async (req, res) => {
     .set({ content, editedAt: new Date() })
     .where(eq(messagesTable.id, messageId))
     .returning();
-  return res.json(await formatMessage(message));
+  const [recipient] = await db
+    .select({ lastReadAt: conversationParticipantsTable.lastReadAt })
+    .from(conversationParticipantsTable)
+    .where(
+      and(
+        eq(conversationParticipantsTable.conversationId, conversationId),
+        ne(conversationParticipantsTable.userId, userId),
+      ),
+    )
+    .limit(1);
+  return res.json(await formatMessage(message, userId, recipient?.lastReadAt));
 });
 
 conversationsRouter.delete("/:id/messages/:messageId", async (req, res) => {

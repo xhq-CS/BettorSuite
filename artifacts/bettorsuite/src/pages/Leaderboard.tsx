@@ -15,12 +15,15 @@ import { formatCurrency } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { StreakStrip } from "@/components/profile/StreakStrip";
 import type { StreakDay } from "@/lib/social-types";
+import { PresenceIndicator, type PresenceStatus } from "@/components/PresenceIndicator";
 
 type Entry = {
   rank: number;
   userId: number;
   username: string;
+  nickname: string | null;
   avatarUrl?: string | null;
+  presenceStatus: PresenceStatus;
   totalBets: number;
   wins: number;
   winRate: number;
@@ -44,10 +47,10 @@ function PodiumCard({ entry }: { entry: Entry }) {
       </div>
       <CardContent className="p-5">
         <div className="mb-4 flex items-center gap-3">
-          <Avatar className="h-11 w-11 border border-white shadow-sm">
+          <span className="relative inline-flex"><Avatar className="h-11 w-11 border border-white shadow-sm">
             <AvatarImage src={entry.avatarUrl ?? undefined} alt="" />
             <AvatarFallback className="bg-slate-950 text-sm font-bold text-white">{entry.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
+          </Avatar><PresenceIndicator status={entry.presenceStatus} /></span>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
               {entry.rank === 1 ? (
@@ -57,9 +60,8 @@ function PodiumCard({ entry }: { entry: Entry }) {
               )}{" "}
               Rank {entry.rank}
             </div>
-            <div className="truncate text-lg font-bold text-slate-950">
-              @{entry.username}
-            </div>
+            <div className="truncate text-lg font-bold text-slate-950">{entry.nickname || `@${entry.username}`}</div>
+            {entry.nickname && <div className="truncate text-xs text-slate-500">@{entry.username}</div>}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 border-y border-slate-200/80 py-3">
@@ -97,6 +99,7 @@ export default function Leaderboard() {
   const board = useQuery({
     queryKey: ["leaderboard"],
     queryFn: () => api<Entry[]>("/leaderboard"),
+    refetchInterval: 30_000,
   });
   const entries = board.data ?? [];
   return (
@@ -159,8 +162,8 @@ export default function Leaderboard() {
                   <TableCell>
                     <Link href={`/profile/${entry.userId}`}>
                       <div className="flex cursor-pointer items-center gap-2.5 hover:text-blue-600">
-                        <Avatar className="h-8 w-8"><AvatarImage src={entry.avatarUrl ?? undefined} alt="" /><AvatarFallback className="bg-slate-900 text-[10px] font-bold text-white">{entry.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar>
-                        <span className="font-semibold">@{entry.username}</span>
+                        <span className="relative inline-flex"><Avatar className="h-8 w-8"><AvatarImage src={entry.avatarUrl ?? undefined} alt="" /><AvatarFallback className="bg-slate-900 text-[10px] font-bold text-white">{entry.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={entry.presenceStatus} /></span>
+                        <span><span className="block font-semibold">{entry.nickname || `@${entry.username}`}</span>{entry.nickname && <span className="block text-[10px] text-slate-500">@{entry.username}</span>}</span>
                       </div>
                     </Link>
                   </TableCell>

@@ -13,6 +13,8 @@ export const usersTable = pgTable("users", {
   bio: text("bio"),
   avatarUrl: text("avatar_url"),
   favoriteSport: text("favorite_sport"),
+  presenceStatus: text("presence_status").default("offline").notNull(),
+  presenceUpdatedAt: timestamp("presence_updated_at"),
   trackerBankroll: numeric("tracker_bankroll").notNull().default("0"),
   trackerBreakEvenEnabled: boolean("tracker_break_even_enabled").default(false).notNull(),
   trackerBreakEvenBalance: numeric("tracker_break_even_balance"),

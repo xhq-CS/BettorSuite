@@ -4,19 +4,31 @@
 
 BettorSuite is an all-in-one sportsbook journal, mock betting workspace, and social community. It replaces manual paper tracking with private account data, consistent performance analytics, shareable picks, and conversations built around the bets themselves.
 
-**Current version:** `v2.5.3`
+**Current version:** `v2.6.0`
 
 ## What is in v2
 
 - **Book Keeper** - Log straight bets and parlays, track sportsbook balances, settle results, review calendar activity, filter history, and measure profit in dollars or units.
 - **Mock Betting** - Test the same ideas against a virtual bankroll without risking real money.
-- **Profiles and leaderboard** - Publish tracked picks, follow bettors, compare verified performance, and see seven-day form at a glance.
+- **Profiles and leaderboard** - Publish tracked picks, follow bettors, add private nicknames, compare verified performance, and see seven-day form at a glance.
 - **Community** - Find groups and bettors, talk in private groups or the public War Room, and share open or settled tickets.
 - **Daily Cards** - Package two or more picks by league and publish or repost them to profiles, groups, Direct Messages, or the War Room.
 - **Tail a bet** - Copy an open pick into Book Keeper or Mock Betting, choose the sportsbook, set the wager, and optionally enter the price available at your own book.
-- **Messages** - Send direct messages, picks, parlays, and Daily Cards one-to-one.
+- **Messages** - Send direct messages, picks, parlays, and Daily Cards one-to-one with delivery, read, and presence indicators.
 
 ## Release history
+
+### v2.6.0 - Live social presence
+
+#### Bug Fixes
+
+- Fixed private nicknames so they save reliably and appear consistently for the person who created them across profiles, search, Direct Messages, groups, the War Room, and leaderboard views.
+
+#### Quality of Life
+
+- Added Delivered and Read receipts to the latest outgoing Direct Message.
+- Added Discord-inspired Online, Idle, and Offline avatar indicators throughout social surfaces.
+- Presence now follows real app activity, changes to Idle after 25 minutes without activity, and safely expires to Offline when a session closes or stops responding.
 
 ### v2.5.3 - Clearer bet entry and winner polish
 
@@ -108,7 +120,7 @@ BettorSuite uses semantic versioning:
 - `MINOR` for backward-compatible features.
 - `PATCH` for backward-compatible fixes and polish.
 
-The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.5.3`.
+The current release is recorded in `VERSION` and the workspace package manifests. Each published release receives a matching Git tag such as `v2.6.0`.
 
 ## Privacy
 

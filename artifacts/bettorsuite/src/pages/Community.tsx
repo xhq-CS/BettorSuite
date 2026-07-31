@@ -19,12 +19,16 @@ import { TailBetDialog } from "@/components/shared-bets/TailBetDialog";
 import { DailyCardCard } from "@/components/daily-cards/DailyCardCard";
 import { DailyCardDialog } from "@/components/daily-cards/DailyCardDialog";
 import type { DailyCard } from "@/lib/social-types";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PresenceIndicator, type PresenceStatus } from "@/components/PresenceIndicator";
 
 interface Post {
   id: number;
   userId: number;
   username: string;
   avatarUrl: string | null;
+  nickname: string | null;
+  presenceStatus: PresenceStatus;
   content: string;
   betShare: SharedBetSnapshot | null;
   dailyCard: DailyCard | null;
@@ -167,8 +171,9 @@ export default function Community() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <Link href={`/profile/${post.userId}`}>
-                        <span className="cursor-pointer text-xs font-semibold text-primary hover:underline">
-                          @{post.username}
+                        <span className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-primary hover:underline">
+                          <span className="relative inline-flex"><Avatar className="h-7 w-7"><AvatarImage src={post.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[8px]">{post.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={post.presenceStatus} /></span>
+                          <span>{post.nickname || `@${post.username}`}</span>
                         </span>
                       </Link>
                       {canDelete && !isEditing &&

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
+import { PresenceIndicator, type PresenceStatus } from "@/components/PresenceIndicator";
 
 interface CommunityUser {
   id: number;
@@ -20,6 +21,8 @@ interface CommunityUser {
   avatarUrl: string | null;
   followersCount: number;
   isFollowing: boolean;
+  nickname: string | null;
+  presenceStatus: PresenceStatus;
 }
 
 interface CommunityGroup {
@@ -51,6 +54,7 @@ export function CommunitySearch({
         `/users?search=${encodeURIComponent(normalizedQuery)}`,
       ),
     enabled: searchEnabled,
+    refetchInterval: searchEnabled ? 30_000 : false,
   });
   const groups = useQuery({
     queryKey: ["community-group-search", normalizedQuery],
@@ -118,17 +122,17 @@ export function CommunitySearch({
                       onClick={() => navigate(`/profile/${person.id}`)}
                       className="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
-                      <Avatar className="h-9 w-9">
+                      <span className="relative inline-flex"><Avatar className="h-9 w-9">
                         <AvatarImage src={person.avatarUrl ?? undefined} alt="" />
                         <AvatarFallback>
-                          {(person.displayName ?? person.username)
+                          {(person.nickname ?? person.displayName ?? person.username)
                             .slice(0, 2)
                             .toUpperCase()}
                         </AvatarFallback>
-                      </Avatar>
+                      </Avatar><PresenceIndicator status={person.presenceStatus} /></span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">
-                          {person.displayName || person.username}
+                          {person.nickname || person.displayName || person.username}
                         </span>
                         <span className="block truncate text-xs text-muted-foreground">
                           @{person.username} · {person.followersCount} followers

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -38,6 +38,7 @@ import { DailyCardDialog } from "@/components/daily-cards/DailyCardDialog";
 import { TailBetDialog } from "@/components/shared-bets/TailBetDialog";
 import type { SharedBetSnapshot } from "@/components/shared-bets/SharedBetCard";
 import type { BettorProfile, DailyCard, PublicPick } from "@/lib/social-types";
+import { PresenceIndicator } from "@/components/PresenceIndicator";
 
 interface ProfileViewProps {
   userId?: number;
@@ -70,7 +71,11 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
     queryKey: ["profile", isOwn ? "me" : userId],
     queryFn: () => api<BettorProfile>(profilePath),
     enabled: isOwn || Boolean(userId),
+    refetchInterval: 30_000,
   });
+  useEffect(() => {
+    setNickname(profile.data?.nickname ?? "");
+  }, [profile.data?.nickname]);
   const resolvedId = profile.data?.id;
   const picks = useQuery({
     queryKey: ["profile-picks", resolvedId],
@@ -152,8 +157,20 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
     onError: (error) => toast.error(error instanceof Error ? error.message : "Unable to remove card"),
   });
   const saveNickname = useMutation({
-    mutationFn: () => api(`/users/${resolvedId}/nickname`, { method: "PUT", body: JSON.stringify({ nickname }) }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["profile", userId] }); toast.success("Private nickname saved"); },
+    mutationFn: () =>
+      nickname.trim()
+        ? api(`/users/${resolvedId}/nickname`, {
+            method: "PUT",
+            body: JSON.stringify({ nickname: nickname.trim() }),
+          })
+        : api(`/users/${resolvedId}/nickname`, { method: "DELETE" }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      queryClient.invalidateQueries({ queryKey: ["community-user-search"] });
+      queryClient.invalidateQueries({ queryKey: ["leaderboard"] });
+      toast.success(nickname.trim() ? "Private nickname saved" : "Private nickname removed");
+    },
     onError: (error) => toast.error(error instanceof Error ? error.message : "Unable to save nickname"),
   });
   const deleteAccount = useMutation({
@@ -179,17 +196,25 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
               {editing ? (
                 <AvatarUploader username={person.username} value={avatarUrl} onChange={setAvatarUrl} />
               ) : (
-                <Avatar className="h-28 w-28 border-4 border-white shadow-lg ring-1 ring-slate-200">
-                  <AvatarImage src={person.avatarUrl ?? undefined} alt={`${person.username} profile`} />
-                  <AvatarFallback className="bg-slate-950 text-2xl font-bold text-white">{person.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-                </Avatar>
+                <span className="relative inline-flex">
+                  <Avatar className="h-28 w-28 border-4 border-white shadow-lg ring-1 ring-slate-200">
+                    <AvatarImage src={person.avatarUrl ?? undefined} alt={`${person.username} profile`} />
+                    <AvatarFallback className="bg-slate-950 text-2xl font-bold text-white">{person.username.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                  <PresenceIndicator status={person.presenceStatus} size="lg" />
+                </span>
               )}
             </div>
             <div className="pt-0 sm:pt-16">
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                 <div>
-                  <h1 className="text-2xl font-bold text-slate-950">{person.displayName || person.username}</h1>
-                  <p className="text-sm text-slate-500">@{person.username}</p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h1 className="text-2xl font-bold text-slate-950">{person.nickname || person.displayName || person.username}</h1>
+                    <PresenceIndicator status={person.presenceStatus} showLabel />
+                  </div>
+                  <p className="text-sm text-slate-500">
+                    @{person.username}{person.nickname && person.displayName ? ` · ${person.displayName}` : ""}
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {isOwn ? (
@@ -217,7 +242,7 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
                       <Button type="button" variant="outline" disabled={message.isPending} onClick={() => message.mutate()}>
                         <MessageCircleMore className="mr-2 h-4 w-4" /> Message
                       </Button>
-                      {person.isFollowing && <div className="flex items-center gap-1"><Input className="h-9 w-36" value={nickname} onFocus={() => !nickname && setNickname(person.nickname ?? "")} onChange={(event) => setNickname(event.target.value)} placeholder="Private nickname" /><Button type="button" size="icon" variant="outline" onClick={() => saveNickname.mutate()} aria-label="Save private nickname"><Tag className="h-4 w-4" /></Button></div>}
+                      {person.isFollowing && <div className="flex items-center gap-1"><Input className="h-9 w-36" value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="Private nickname" maxLength={40} /><Button type="button" size="icon" variant="outline" disabled={saveNickname.isPending} onClick={() => saveNickname.mutate()} aria-label="Save private nickname"><Tag className="h-4 w-4" /></Button></div>}
                     </>
                   )}
                 </div>
@@ -306,7 +331,7 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
         />
       )}
       {isOwn && <Card className="border-red-200"><CardContent className="flex items-center justify-between gap-4 p-4"><div><p className="text-sm font-semibold text-red-700">Delete account</p><p className="text-xs text-slate-500">Permanently remove your login, profile, bets, wallet, and messages.</p></div><Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="mr-2 h-4 w-4" />Delete Account</Button></CardContent></Card>}
-      {peopleList && <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm"><Card className="w-full max-w-md"><div className="flex items-center justify-between border-b p-4"><h2 className="font-semibold capitalize">{peopleList}</h2><Button size="icon" variant="ghost" onClick={() => setPeopleList(null)}><X className="h-4 w-4" /></Button></div><CardContent className="max-h-[60vh] space-y-1 overflow-y-auto p-3">{people.data?.map((account) => <button key={account.id} type="button" onClick={() => { setPeopleList(null); navigate(`/profile/${account.id}`); }} className="flex w-full items-center gap-3 rounded-lg p-3 text-left hover:bg-slate-50"><Avatar><AvatarImage src={account.avatarUrl ?? undefined} /><AvatarFallback>{account.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><div><p className="text-sm font-semibold">{account.nickname || account.displayName || account.username}</p><p className="text-xs text-slate-500">@{account.username}</p></div></button>)}{!people.isLoading && !people.data?.length && <p className="py-8 text-center text-sm text-slate-500">Nobody here yet.</p>}</CardContent></Card></div>}
+      {peopleList && <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm"><Card className="w-full max-w-md"><div className="flex items-center justify-between border-b p-4"><h2 className="font-semibold capitalize">{peopleList}</h2><Button size="icon" variant="ghost" onClick={() => setPeopleList(null)}><X className="h-4 w-4" /></Button></div><CardContent className="max-h-[60vh] space-y-1 overflow-y-auto p-3">{people.data?.map((account) => <button key={account.id} type="button" onClick={() => { setPeopleList(null); navigate(`/profile/${account.id}`); }} className="flex w-full items-center gap-3 rounded-lg p-3 text-left hover:bg-slate-50"><span className="relative inline-flex"><Avatar><AvatarImage src={account.avatarUrl ?? undefined} /><AvatarFallback>{account.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={account.presenceStatus} /></span><div><p className="text-sm font-semibold">{account.nickname || account.displayName || account.username}</p><p className="text-xs text-slate-500">@{account.username}</p></div></button>)}{!people.isLoading && !people.data?.length && <p className="py-8 text-center text-sm text-slate-500">Nobody here yet.</p>}</CardContent></Card></div>}
       {deleteOpen && <div className="fixed inset-0 z-[95] grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm"><Card className="w-full max-w-md"><CardContent className="space-y-4 p-5"><div className="flex justify-between"><div><h2 className="font-semibold text-red-700">Permanently delete account?</h2><p className="mt-1 text-xs text-slate-500">This cannot be reversed.</p></div><Button size="icon" variant="ghost" onClick={() => setDeleteOpen(false)}><X className="h-4 w-4" /></Button></div><div><label className="text-xs font-semibold">Password</label><Input type="password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} /></div><div><label className="text-xs font-semibold">Type {person.username}</label><Input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} /></div><Button className="w-full" variant="destructive" disabled={deleteAccount.isPending || deleteConfirmation !== person.username || !deletePassword} onClick={() => deleteAccount.mutate()}>Delete every part of my account</Button></CardContent></Card></div>}
     </div>
   );

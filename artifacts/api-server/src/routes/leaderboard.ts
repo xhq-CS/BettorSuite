@@ -2,11 +2,18 @@ import { Router } from "express";
 import { db, usersTable, betsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { localDateKey } from "../lib/localDates";
+import type { AuthRequest } from "../middleware/auth";
+import { resolvedPresence } from "../lib/presence";
+import { privateNicknameMap } from "../lib/socialIdentity";
 
 export const leaderboardRouter = Router();
 
-leaderboardRouter.get("/", async (_req, res) => {
+leaderboardRouter.get("/", async (req, res) => {
   const users = await db.select().from(usersTable).limit(100);
+  const nicknames = await privateNicknameMap(
+    (req as AuthRequest).userId,
+    users.map((user) => user.id),
+  );
   const entries = (
     await Promise.all(
       users.map(async (user) => {
@@ -54,7 +61,12 @@ leaderboardRouter.get("/", async (_req, res) => {
         return {
           userId: user.id,
           username: user.username,
+          nickname: nicknames.get(user.id) ?? null,
           avatarUrl: user.avatarUrl ?? null,
+          presenceStatus: resolvedPresence(
+            user.presenceStatus,
+            user.presenceUpdatedAt,
+          ),
           totalBets: settled.length,
           wins,
           winRate: wins / settled.length,

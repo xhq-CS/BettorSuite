@@ -42,10 +42,16 @@ import { TailBetDialog } from "@/components/shared-bets/TailBetDialog";
 import { DailyCardCard } from "@/components/daily-cards/DailyCardCard";
 import { DailyCardDialog } from "@/components/daily-cards/DailyCardDialog";
 import type { DailyCard } from "@/lib/social-types";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { PresenceIndicator, type PresenceStatus } from "@/components/PresenceIndicator";
 
 type Member = {
   userId: number;
   username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  nickname: string | null;
+  presenceStatus: PresenceStatus;
   role: string;
   muted: boolean;
   mutedAt: string | null;
@@ -69,13 +75,23 @@ type Message = {
   id: number;
   senderId: number;
   senderUsername: string;
+  senderAvatarUrl: string | null;
+  senderNickname: string | null;
+  senderPresenceStatus: PresenceStatus;
   content: string;
   betShare: SharedBetSnapshot | null;
   dailyCard: DailyCard | null;
   createdAt: string;
   editedAt: string | null;
 };
-type User = { id: number; username: string };
+type User = {
+  id: number;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  nickname: string | null;
+  presenceStatus: PresenceStatus;
+};
 
 export default function GroupDetail() {
   const { id } = useParams<{ id: string }>();
@@ -368,9 +384,10 @@ export default function GroupDetail() {
                           <button
                             type="button"
                             onClick={() => nav(`/profile/${item.senderId}`)}
-                            className="mb-1 ml-3 text-[11px] font-semibold text-slate-500 hover:text-blue-600 hover:underline"
+                            className="mb-1 ml-3 flex items-center gap-2 text-[11px] font-semibold text-slate-500 hover:text-blue-600 hover:underline"
                           >
-                            @{item.senderUsername}
+                            <span className="relative inline-flex"><Avatar className="h-6 w-6"><AvatarImage src={item.senderAvatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[7px]">{item.senderUsername.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={item.senderPresenceStatus} /></span>
+                            {item.senderNickname || `@${item.senderUsername}`}
                           </button>
                         )}
                         <div
@@ -600,9 +617,10 @@ export default function GroupDetail() {
                   <button
                     type="button"
                     onClick={() => nav(`/profile/${member.userId}`)}
-                    className="min-w-0 truncate hover:text-blue-600 hover:underline"
+                    className="flex min-w-0 items-center gap-2 truncate text-left hover:text-blue-600 hover:underline"
                   >
-                    @{member.username}{" "}
+                    <span className="relative inline-flex"><Avatar className="h-8 w-8"><AvatarImage src={member.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[8px]">{member.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={member.presenceStatus} /></span>
+                    <span className="truncate">{member.nickname || member.displayName || `@${member.username}`}</span>{" "}
                     {member.userId === g.creatorId && (
                       <small className="ml-1 rounded-full bg-blue-50 px-1.5 py-0.5 font-semibold text-blue-700">
                         Owner
@@ -682,7 +700,7 @@ export default function GroupDetail() {
                             key={found.id}
                             className="flex justify-between items-center text-sm"
                           >
-                            <span>@{found.username}</span>
+                            <span className="flex min-w-0 items-center gap-2"><span className="relative inline-flex"><Avatar className="h-7 w-7"><AvatarImage src={found.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[7px]">{found.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={found.presenceStatus} /></span><span className="truncate">{found.nickname || found.displayName || `@${found.username}`}</span></span>
                             <div className="flex gap-1">
                               <Button
                                 size="sm"

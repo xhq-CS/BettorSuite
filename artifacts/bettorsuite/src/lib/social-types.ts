@@ -1,4 +1,5 @@
 import type { SharedBetSnapshot } from "@/components/shared-bets/SharedBetCard";
+import type { PresenceStatus } from "@/components/PresenceIndicator";
 
 export interface DailyCard {
   id: number;
@@ -42,6 +43,7 @@ export interface BettorProfile {
   followingCount: number;
   isFollowing: boolean;
   nickname: string | null;
+  presenceStatus: PresenceStatus;
   stats: ProfileStats;
   createdAt: string;
 }
@@ -68,6 +70,8 @@ export interface Conversation {
   participantUsername: string;
   participantDisplayName: string | null;
   participantAvatarUrl: string | null;
+  participantNickname: string | null;
+  participantPresenceStatus: PresenceStatus;
   lastMessage: string | null;
   lastMessageAt: string | null;
   notificationsMuted: boolean;
@@ -85,4 +89,5 @@ export interface DirectMessage {
   dailyCard: DailyCard | null;
   createdAt: string;
   editedAt: string | null;
+  deliveryStatus: "delivered" | "read" | null;
 }

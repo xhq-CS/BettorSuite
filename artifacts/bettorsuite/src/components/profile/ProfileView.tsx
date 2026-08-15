@@ -14,6 +14,7 @@ import {
   X,
   Trash2,
   Tag,
+  MoreHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
@@ -39,6 +40,7 @@ import { TailBetDialog } from "@/components/shared-bets/TailBetDialog";
 import type { SharedBetSnapshot } from "@/components/shared-bets/SharedBetCard";
 import type { BettorProfile, DailyCard, PublicPick } from "@/lib/social-types";
 import { PresenceIndicator } from "@/components/PresenceIndicator";
+import { AccountSafetyDialog } from "@/components/safety/AccountSafetyDialog";
 
 interface ProfileViewProps {
   userId?: number;
@@ -66,6 +68,7 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePassword, setDeletePassword] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [safetyOpen,setSafetyOpen]=useState(false);
   const profilePath = isOwn ? "/users/me" : `/users/${userId}`;
   const profile = useQuery({
     queryKey: ["profile", isOwn ? "me" : userId],
@@ -196,12 +199,12 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
               {editing ? (
                 <AvatarUploader username={person.username} value={avatarUrl} onChange={setAvatarUrl} />
               ) : (
-                <span className="relative inline-flex">
+                <span className="relative inline-flex h-28 w-28 shrink-0 self-start">
                   <Avatar className="h-28 w-28 border-4 border-white shadow-lg ring-1 ring-slate-200">
                     <AvatarImage src={person.avatarUrl ?? undefined} alt={`${person.username} profile`} />
                     <AvatarFallback className="bg-slate-950 text-2xl font-bold text-white">{person.username.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
-                  <PresenceIndicator status={person.presenceStatus} size="lg" />
+                  <PresenceIndicator status={person.presenceStatus} size="xl" />
                 </span>
               )}
             </div>
@@ -209,11 +212,18 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
               <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h1 className="text-2xl font-bold text-slate-950">{person.nickname || person.displayName || person.username}</h1>
-                    <PresenceIndicator status={person.presenceStatus} showLabel />
+                    <h1 className="flex flex-wrap items-baseline gap-x-2 text-2xl font-bold text-slate-950">
+                      <span>{person.displayName || person.username}</span>
+                      {person.nickname ? (
+                        <>
+                          <span className="text-sm font-normal text-slate-400" aria-hidden="true">·</span>
+                          <span className="font-sans text-[13px] font-medium tracking-normal text-slate-500">{person.nickname}</span>
+                        </>
+                      ) : null}
+                    </h1>
                   </div>
                   <p className="text-sm text-slate-500">
-                    @{person.username}{person.nickname && person.displayName ? ` · ${person.displayName}` : ""}
+                    @{person.username}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -235,13 +245,14 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
                     </Button>
                   ) : (
                     <>
-                      <Button type="button" variant={person.isFollowing ? "secondary" : "default"} disabled={follow.isPending} onClick={() => follow.mutate()}>
+                      <Button type="button" variant={person.isFollowing ? "secondary" : "default"} disabled={follow.isPending || person.isBlocked || person.blockedByUser} onClick={() => follow.mutate()}>
                         {person.isFollowing ? <Check className="mr-2 h-4 w-4" /> : <UserPlus className="mr-2 h-4 w-4" />}
                         {person.isFollowing ? "Following" : "Follow"}
                       </Button>
-                      <Button type="button" variant="outline" disabled={message.isPending} onClick={() => message.mutate()}>
+                      <Button type="button" variant="outline" disabled={message.isPending || person.isBlocked || person.blockedByUser} onClick={() => message.mutate()}>
                         <MessageCircleMore className="mr-2 h-4 w-4" /> Message
                       </Button>
+                      <Button type="button" size="icon" variant="outline" aria-label="Safety options" onClick={()=>setSafetyOpen(true)}><MoreHorizontal className="h-4 w-4"/></Button>
                       {person.isFollowing && <div className="flex items-center gap-1"><Input className="h-9 w-36" value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="Private nickname" maxLength={40} /><Button type="button" size="icon" variant="outline" disabled={saveNickname.isPending} onClick={() => saveNickname.mutate()} aria-label="Save private nickname"><Tag className="h-4 w-4" /></Button></div>}
                     </>
                   )}
@@ -324,6 +335,7 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
         </CardContent>
       </Card>
       <TailBetDialog bet={tailBet} onClose={() => setTailBet(null)} />
+      {!isOwn&&resolvedId&&<AccountSafetyDialog open={safetyOpen} onOpenChange={setSafetyOpen} userId={resolvedId} username={person.username} blocked={person.isBlocked} onChanged={()=>{queryClient.invalidateQueries({queryKey:["profile",userId]});queryClient.invalidateQueries({queryKey:["conversations"]});}}/>}
       {showDailyCard && (
         <DailyCardDialog
           destination="war-room"
@@ -331,7 +343,7 @@ export function ProfileView({ userId, isOwn = false }: ProfileViewProps) {
         />
       )}
       {isOwn && <Card className="border-red-200"><CardContent className="flex items-center justify-between gap-4 p-4"><div><p className="text-sm font-semibold text-red-700">Delete account</p><p className="text-xs text-slate-500">Permanently remove your login, profile, bets, wallet, and messages.</p></div><Button variant="destructive" size="sm" onClick={() => setDeleteOpen(true)}><Trash2 className="mr-2 h-4 w-4" />Delete Account</Button></CardContent></Card>}
-      {peopleList && <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm"><Card className="w-full max-w-md"><div className="flex items-center justify-between border-b p-4"><h2 className="font-semibold capitalize">{peopleList}</h2><Button size="icon" variant="ghost" onClick={() => setPeopleList(null)}><X className="h-4 w-4" /></Button></div><CardContent className="max-h-[60vh] space-y-1 overflow-y-auto p-3">{people.data?.map((account) => <button key={account.id} type="button" onClick={() => { setPeopleList(null); navigate(`/profile/${account.id}`); }} className="flex w-full items-center gap-3 rounded-lg p-3 text-left hover:bg-slate-50"><span className="relative inline-flex"><Avatar><AvatarImage src={account.avatarUrl ?? undefined} /><AvatarFallback>{account.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={account.presenceStatus} /></span><div><p className="text-sm font-semibold">{account.nickname || account.displayName || account.username}</p><p className="text-xs text-slate-500">@{account.username}</p></div></button>)}{!people.isLoading && !people.data?.length && <p className="py-8 text-center text-sm text-slate-500">Nobody here yet.</p>}</CardContent></Card></div>}
+      {peopleList && <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm"><Card className="w-full max-w-md"><div className="flex items-center justify-between border-b p-4"><h2 className="font-semibold capitalize">{peopleList}</h2><Button size="icon" variant="ghost" onClick={() => setPeopleList(null)}><X className="h-4 w-4" /></Button></div><CardContent className="max-h-[60vh] space-y-1 overflow-y-auto p-3">{people.data?.map((account) => <button key={account.id} type="button" onClick={() => { setPeopleList(null); navigate(`/profile/${account.id}`); }} className="flex w-full items-center gap-3 rounded-lg p-3 text-left hover:bg-slate-50"><span className="relative inline-flex"><Avatar><AvatarImage src={account.avatarUrl ?? undefined} /><AvatarFallback>{account.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={account.presenceStatus} size="md" /></span><div><p className="text-sm font-semibold">{account.nickname || account.displayName || account.username}</p><p className="text-xs text-slate-500">@{account.username}</p></div></button>)}{!people.isLoading && !people.data?.length && <p className="py-8 text-center text-sm text-slate-500">Nobody here yet.</p>}</CardContent></Card></div>}
       {deleteOpen && <div className="fixed inset-0 z-[95] grid place-items-center bg-slate-950/80 p-4 backdrop-blur-sm"><Card className="w-full max-w-md"><CardContent className="space-y-4 p-5"><div className="flex justify-between"><div><h2 className="font-semibold text-red-700">Permanently delete account?</h2><p className="mt-1 text-xs text-slate-500">This cannot be reversed.</p></div><Button size="icon" variant="ghost" onClick={() => setDeleteOpen(false)}><X className="h-4 w-4" /></Button></div><div><label className="text-xs font-semibold">Password</label><Input type="password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} /></div><div><label className="text-xs font-semibold">Type {person.username}</label><Input value={deleteConfirmation} onChange={(event) => setDeleteConfirmation(event.target.value)} /></div><Button className="w-full" variant="destructive" disabled={deleteAccount.isPending || deleteConfirmation !== person.username || !deletePassword} onClick={() => deleteAccount.mutate()}>Delete every part of my account</Button></CardContent></Card></div>}
     </div>
   );

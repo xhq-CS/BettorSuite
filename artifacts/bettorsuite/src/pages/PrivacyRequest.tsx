@@ -1,0 +1,15 @@
+import { useState } from "react";
+import { CheckCircle2, Send } from "lucide-react";
+import { api } from "@/lib/api";
+import { PublicPage } from "@/components/public/PublicChrome";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+export default function PrivacyRequest() {
+  const [email,setEmail]=useState(""); const [category,setCategory]=useState("privacy-access"); const [details,setDetails]=useState(""); const [busy,setBusy]=useState(false); const [done,setDone]=useState(false); const [error,setError]=useState("");
+  const submit=async(e:React.FormEvent)=>{e.preventDefault();setBusy(true);setError("");try{await api("/legal/privacy-requests",{method:"POST",body:JSON.stringify({email,category,details})});setDone(true);}catch(err){setError(err instanceof Error?err.message:"Unable to submit request");}finally{setBusy(false);}};
+  return <PublicPage><main className="mx-auto max-w-2xl px-5 py-14"><div className="rounded-2xl border bg-white p-6 shadow-sm sm:p-8">{done?<div className="py-10 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-emerald-500"/><h1 className="mt-4 text-2xl font-bold">Request received</h1><p className="mt-2 text-sm text-slate-600">We recorded your request for review. Keep access to the email you provided so your identity can be verified.</p></div>:<><p className="text-xs font-bold uppercase tracking-wider text-blue-600">Privacy center</p><h1 className="mt-2 text-3xl font-black">Make a privacy request</h1><p className="mt-3 text-sm leading-6 text-slate-600">Request access, correction, deletion, or another privacy action. Do not include passwords, banking details, or other highly sensitive information.</p><form onSubmit={submit} className="mt-7 space-y-4"><div><Label htmlFor="privacy-email">Account email</Label><Input id="privacy-email" type="email" value={email} onChange={e=>setEmail(e.target.value)} required/></div><div><Label>Request type</Label><Select value={category} onValueChange={setCategory}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="privacy-access">Access my data</SelectItem><SelectItem value="privacy-correction">Correct my data</SelectItem><SelectItem value="privacy-deletion">Delete my data</SelectItem><SelectItem value="privacy-opt-out">Opt out request</SelectItem><SelectItem value="other">Other privacy request</SelectItem></SelectContent></Select></div><div><Label htmlFor="privacy-details">Details</Label><Textarea id="privacy-details" rows={6} minLength={10} maxLength={2000} value={details} onChange={e=>setDetails(e.target.value)} required/><p className="mt-1 text-right text-xs text-slate-400">{details.length}/2000</p></div>{error&&<p className="text-sm text-red-600">{error}</p>}<Button className="w-full" disabled={busy}>{busy?"Submitting…":<><Send className="mr-2 h-4 w-4"/>Submit private request</>}</Button></form></>}</div></main></PublicPage>;
+}

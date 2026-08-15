@@ -11,6 +11,7 @@ import type { AuthRequest } from "../middleware/auth";
 import { getDailyCard } from "../lib/dailyCards";
 import { resolvedPresence } from "../lib/presence";
 import { privateNicknameMap } from "../lib/socialIdentity";
+import { interactionBlockState } from "../lib/safety";
 
 export const conversationsRouter = Router();
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
@@ -59,6 +60,14 @@ async function formatMessage(
           : "delivered"
         : null,
   };
+}
+
+async function conversationPeerId(conversationId: number, userId: number) {
+  const [peer] = await db.select({ userId: conversationParticipantsTable.userId }).from(conversationParticipantsTable).where(and(
+    eq(conversationParticipantsTable.conversationId, conversationId),
+    ne(conversationParticipantsTable.userId, userId),
+  )).limit(1);
+  return peer?.userId ?? null;
 }
 
 conversationsRouter.get("/", async (req, res) => {
@@ -115,6 +124,7 @@ conversationsRouter.get("/", async (req, res) => {
           ),
       ]);
       if (!other) return null;
+      if ((await interactionBlockState(userId, other.id)).blocked) return null;
       return {
         id: conversationId,
         participantId: other.id,
@@ -179,6 +189,7 @@ conversationsRouter.post("/", async (req, res) => {
     .from(usersTable)
     .where(eq(usersTable.id, targetId));
   if (!target) return void res.status(404).json({ error: "Bettor not found" });
+  if ((await interactionBlockState(userId, targetId)).blocked) return void res.status(403).json({ error: "Messaging is unavailable between these accounts." });
 
   const myConversations = await db
     .select({ conversationId: conversationParticipantsTable.conversationId })
@@ -214,6 +225,8 @@ conversationsRouter.get("/:id/messages", async (req, res) => {
   const userId = currentUserId(req);
   if (!Number.isInteger(conversationId) || !(await participant(conversationId, userId)))
     return void res.status(404).json({ error: "Conversation not found" });
+  const peerId = await conversationPeerId(conversationId, userId);
+  if (peerId && (await interactionBlockState(userId, peerId)).blocked) return void res.status(403).json({ error: "Messaging is unavailable between these accounts." });
   const rows = await db
     .select()
     .from(messagesTable)
@@ -254,6 +267,8 @@ conversationsRouter.post("/:id/messages", async (req, res) => {
   const content = String(req.body.content ?? "").trim();
   if (!Number.isInteger(conversationId) || !(await participant(conversationId, userId)))
     return void res.status(404).json({ error: "Conversation not found" });
+  const peerId = await conversationPeerId(conversationId, userId);
+  if (peerId && (await interactionBlockState(userId, peerId)).blocked) return void res.status(403).json({ error: "Messaging is unavailable between these accounts." });
   if (!content || content.length > 2000)
     return void res.status(400).json({ error: "Message must be 1-2000 characters" });
   const [message] = await db

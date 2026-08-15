@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useMessageNotifications } from "@/hooks/use-message-notifications";
 import {
-  Target, Gamepad2, Users, Trophy, UserRound, LogOut, MessagesSquare, ShieldCheck,
+  Target, Gamepad2, Users, Trophy, UserRound, LogOut, MessagesSquare, ShieldCheck, LockKeyhole,
 } from "lucide-react";
 
 const navItems = [
@@ -13,6 +13,7 @@ const navItems = [
   { href: "/messages",     label: "Messages",     icon: MessagesSquare },
   { href: "/leaderboard",  label: "Leaderboard",  icon: Trophy        },
   { href: "/profile/me", label: "Profile",     icon: UserRound       },
+  { href: "/security", label: "Security", icon: LockKeyhole },
 ];
 
 export function Sidebar() {

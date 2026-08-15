@@ -93,6 +93,16 @@ type User = {
   presenceStatus: PresenceStatus;
 };
 
+const memberName = (member: Member) =>
+  member.nickname || member.displayName || member.username;
+
+const sortMembers = (members: Member[], creatorId: number | null) =>
+  [...members].sort((a, b) => {
+    const ownerOrder =
+      Number(b.userId === creatorId) - Number(a.userId === creatorId);
+    return ownerOrder || memberName(a).localeCompare(memberName(b));
+  });
+
 export default function GroupDetail() {
   const { id } = useParams<{ id: string }>();
   const groupId = Number(id);
@@ -295,6 +305,22 @@ export default function GroupDetail() {
     g.creatorId === user?.id ||
     (g.creatorId == null && g.role === "admin");
   const manager = g.canManage || owner;
+  const memberSections = [
+    {
+      label: "Online",
+      members: sortMembers(
+        g.members.filter((member) => member.presenceStatus !== "offline"),
+        g.creatorId,
+      ),
+    },
+    {
+      label: "Offline",
+      members: sortMembers(
+        g.members.filter((member) => member.presenceStatus === "offline"),
+        g.creatorId,
+      ),
+    },
+  ].filter((section) => section.members.length > 0);
 
   return (
     <div className="max-w-6xl mx-auto space-y-4">
@@ -384,9 +410,8 @@ export default function GroupDetail() {
                           <button
                             type="button"
                             onClick={() => nav(`/profile/${item.senderId}`)}
-                            className="mb-1 ml-3 flex items-center gap-2 text-[11px] font-semibold text-slate-500 hover:text-blue-600 hover:underline"
+                            className="mb-1 ml-3 text-[11px] font-semibold text-slate-500 hover:text-blue-600 hover:underline"
                           >
-                            <span className="relative inline-flex"><Avatar className="h-6 w-6"><AvatarImage src={item.senderAvatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[7px]">{item.senderUsername.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={item.senderPresenceStatus} /></span>
                             {item.senderNickname || `@${item.senderUsername}`}
                           </button>
                         )}
@@ -608,64 +633,73 @@ export default function GroupDetail() {
             <CardHeader>
               <CardTitle className="text-base">Members</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3">
-              {g.members.map((member) => (
-                <div
-                  key={member.userId}
-                  className="flex items-center justify-between gap-2 rounded-lg px-1 py-1.5 text-sm"
-                >
-                  <button
-                    type="button"
-                    onClick={() => nav(`/profile/${member.userId}`)}
-                    className="flex min-w-0 items-center gap-2 truncate text-left hover:text-blue-600 hover:underline"
-                  >
-                    <span className="relative inline-flex"><Avatar className="h-8 w-8"><AvatarImage src={member.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[8px]">{member.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={member.presenceStatus} /></span>
-                    <span className="truncate">{member.nickname || member.displayName || `@${member.username}`}</span>{" "}
-                    {member.userId === g.creatorId && (
-                      <small className="ml-1 rounded-full bg-blue-50 px-1.5 py-0.5 font-semibold text-blue-700">
-                        Owner
-                      </small>
-                    )}
-                  </button>
-                  {manager && member.muted && (
-                    <small className="rounded-full bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-700">
-                      Muted
-                    </small>
-                  )}
-                  {manager && member.userId !== user?.id && (
-                    <div className="flex shrink-0 items-center gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
-                        aria-label={`${member.muted ? "Unmute" : "Mute"} @${member.username}`}
-                        title={`${member.muted ? "Unmute" : "Mute"} @${member.username}`}
-                        disabled={muteMember.isPending}
-                        onClick={() =>
-                          muteMember.mutate({ member, muted: !member.muted })
-                        }
+            <CardContent className="space-y-4">
+              {memberSections.map((section) => (
+                <section key={section.label} aria-label={`${section.label} members`}>
+                  <div className="mb-1.5 px-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                    {section.label} — {section.members.length}
+                  </div>
+                  <div className="space-y-1">
+                    {section.members.map((member) => (
+                      <div
+                        key={member.userId}
+                        className="flex items-center justify-between gap-2 rounded-lg px-1 py-1.5 text-sm"
                       >
-                        {member.muted ? (
-                          <Volume2 className="h-4 w-4" />
-                        ) : (
-                          <VolumeX className="h-4 w-4" />
-                        )}
-                      </Button>
-                      {member.userId !== g.creatorId && (
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-red-500 hover:bg-red-50 hover:text-red-600"
-                          aria-label={`Remove @${member.username}`}
-                          title={`Remove @${member.username}`}
-                          onClick={() => setMemberToRemove(member)}
+                        <button
+                          type="button"
+                          onClick={() => nav(`/profile/${member.userId}`)}
+                          className={`flex min-w-0 items-center gap-2 truncate text-left hover:text-blue-600 hover:underline ${section.label === "Offline" ? "text-slate-500" : ""}`}
                         >
-                          <UserMinus className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
+                          <span className={`relative inline-flex ${section.label === "Offline" ? "opacity-75" : ""}`}><Avatar className="h-8 w-8"><AvatarImage src={member.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[8px]">{member.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={member.presenceStatus} size="sm" /></span>
+                          <span className="truncate">{member.nickname || member.displayName || `@${member.username}`}</span>{" "}
+                          {member.userId === g.creatorId && (
+                            <small className="ml-1 rounded-full bg-blue-50 px-1.5 py-0.5 font-semibold text-blue-700">
+                              Owner
+                            </small>
+                          )}
+                        </button>
+                        {manager && member.muted && (
+                          <small className="rounded-full bg-amber-50 px-1.5 py-0.5 font-semibold text-amber-700">
+                            Muted
+                          </small>
+                        )}
+                        {manager && member.userId !== user?.id && (
+                          <div className="flex shrink-0 items-center gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-amber-600 hover:bg-amber-50 hover:text-amber-700"
+                              aria-label={`${member.muted ? "Unmute" : "Mute"} @${member.username}`}
+                              title={`${member.muted ? "Unmute" : "Mute"} @${member.username}`}
+                              disabled={muteMember.isPending}
+                              onClick={() =>
+                                muteMember.mutate({ member, muted: !member.muted })
+                              }
+                            >
+                              {member.muted ? (
+                                <Volume2 className="h-4 w-4" />
+                              ) : (
+                                <VolumeX className="h-4 w-4" />
+                              )}
+                            </Button>
+                            {member.userId !== g.creatorId && (
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8 text-red-500 hover:bg-red-50 hover:text-red-600"
+                                aria-label={`Remove @${member.username}`}
+                                title={`Remove @${member.username}`}
+                                onClick={() => setMemberToRemove(member)}
+                              >
+                                <UserMinus className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </section>
               ))}
             </CardContent>
           </Card>
@@ -700,7 +734,7 @@ export default function GroupDetail() {
                             key={found.id}
                             className="flex justify-between items-center text-sm"
                           >
-                            <span className="flex min-w-0 items-center gap-2"><span className="relative inline-flex"><Avatar className="h-7 w-7"><AvatarImage src={found.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[7px]">{found.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={found.presenceStatus} /></span><span className="truncate">{found.nickname || found.displayName || `@${found.username}`}</span></span>
+                            <span className="flex min-w-0 items-center gap-2"><span className="relative inline-flex"><Avatar className="h-7 w-7"><AvatarImage src={found.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[7px]">{found.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={found.presenceStatus} size="xs" /></span><span className="truncate">{found.nickname || found.displayName || `@${found.username}`}</span></span>
                             <div className="flex gap-1">
                               <Button
                                 size="sm"

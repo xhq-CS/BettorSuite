@@ -26,6 +26,7 @@ import { localDateKey } from "../lib/localDates";
 import { purgeAccountData } from "../lib/accountPurge";
 import { verifyPassword } from "../lib/passwords";
 import { resolvedPresence } from "../lib/presence";
+import { interactionBlockState } from "../lib/safety";
 
 export const usersRouter = Router();
 const currentUserId = (req: unknown) => (req as AuthRequest).userId;
@@ -90,6 +91,9 @@ async function formatUser(
 
   let isFollowing = false;
   let nickname: string | null = null;
+  const blockState = viewerId === u.id
+    ? { blocked: false, blockedByViewer: false, viewerBlocked: false }
+    : await interactionBlockState(viewerId, u.id);
   if (viewerId !== u.id) {
     const [follow] = await db
       .select()
@@ -116,6 +120,8 @@ async function formatUser(
     followersCount: followersCount ?? 0,
     followingCount: followingCount ?? 0,
     isFollowing,
+    isBlocked: blockState.blockedByViewer,
+    blockedByUser: blockState.viewerBlocked,
     nickname,
     ...(includeStats ? { stats: await publicStats(u.id) } : {}),
     createdAt: u.createdAt.toISOString(),
@@ -143,7 +149,7 @@ usersRouter.get("/", async (req, res) => {
     .limit(30);
 
   const formatted = await Promise.all(rows.map((u) => formatUser(u, currentUserId(req))));
-  res.json(formatted);
+  res.json(formatted.filter((user) => !user.isBlocked && !user.blockedByUser));
 });
 
 // GET /users/me
@@ -295,6 +301,7 @@ usersRouter.get("/:id", async (req, res) => {
 usersRouter.post("/:id/follow", async (req, res) => {
   const { id } = FollowUserParams.parse({ id: Number(req.params.id) });
   if (id === currentUserId(req)) return void res.status(400).json({ error: "Cannot follow yourself" });
+  if ((await interactionBlockState(currentUserId(req), id)).blocked) return void res.status(403).json({ error: "Following is unavailable between these accounts." });
 
   const [existing] = await db
     .select()

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { postsTable, postLikesTable, usersTable } from "@workspace/db";
-import { eq, and, desc, sql, lt, inArray } from "drizzle-orm";
+import { postsTable, postLikesTable, userBlocksTable, usersTable } from "@workspace/db";
+import { eq, and, desc, sql, lt, inArray, or } from "drizzle-orm";
 import {
   CreatePostBody,
   GetPostParams,
@@ -33,6 +33,7 @@ postsRouter.get("/", async (req, res) => {
       id: postsTable.id,
       userId: postsTable.userId,
       username: usersTable.username,
+      displayName: usersTable.displayName,
       avatarUrl: usersTable.avatarUrl,
       presenceStatus: usersTable.presenceStatus,
       presenceUpdatedAt: usersTable.presenceUpdatedAt,
@@ -52,7 +53,14 @@ postsRouter.get("/", async (req, res) => {
     .limit(limit + 1);
 
   const hasMore = posts.length > limit;
-  const items = hasMore ? posts.slice(0, limit) : posts;
+  const rawItems = hasMore ? posts.slice(0, limit) : posts;
+  const viewerId = currentUserId(req);
+  const blocks = await db.select({ blockerId: userBlocksTable.blockerId, blockedId: userBlocksTable.blockedId }).from(userBlocksTable).where(or(
+    eq(userBlocksTable.blockerId, viewerId),
+    eq(userBlocksTable.blockedId, viewerId),
+  ));
+  const blockedIds = new Set(blocks.map((row) => row.blockerId === viewerId ? row.blockedId : row.blockerId));
+  const items = rawItems.filter((post) => !blockedIds.has(post.userId));
   const postIds = items.map((p) => p.id);
 
   const likeCounts =
@@ -94,6 +102,7 @@ postsRouter.get("/", async (req, res) => {
       id: p.id,
       userId: p.userId,
       username: p.username ?? "Unknown",
+      displayName: p.displayName ?? null,
       avatarUrl: p.avatarUrl ?? null,
       nickname: nicknames.get(p.userId) ?? null,
       presenceStatus: resolvedPresence(p.presenceStatus, p.presenceUpdatedAt),
@@ -134,6 +143,7 @@ postsRouter.post("/", async (req, res) => {
   const [user] = await db
     .select({
       username: usersTable.username,
+      displayName: usersTable.displayName,
       avatarUrl: usersTable.avatarUrl,
       presenceStatus: usersTable.presenceStatus,
       presenceUpdatedAt: usersTable.presenceUpdatedAt,
@@ -145,6 +155,7 @@ postsRouter.post("/", async (req, res) => {
     id: post.id,
     userId: post.userId,
     username: user?.username ?? "Unknown",
+    displayName: user?.displayName ?? null,
     avatarUrl: user?.avatarUrl ?? null,
     nickname: null,
     presenceStatus: resolvedPresence(

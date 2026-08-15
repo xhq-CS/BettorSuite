@@ -54,6 +54,7 @@ app.use((_req, res, next) => {
 app.use(cookieParser());
 app.use(express.json({ limit: "1mb" }));
 app.use("/api/auth", authRateLimit);
+app.use("/api/legal", authRateLimit);
 
 app.use("/api", router);
 

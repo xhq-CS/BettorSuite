@@ -16,6 +16,9 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   ));
   if (!session) return void res.status(401).json({ error: "Session expired" });
   (req as AuthRequest).userId = session.userId;
+  if (!session.lastSeenAt || Date.now() - session.lastSeenAt.getTime() > 5 * 60 * 1000) {
+    void db.update(sessionsTable).set({ lastSeenAt: new Date() }).where(eq(sessionsTable.id, session.id));
+  }
   next();
 }
 

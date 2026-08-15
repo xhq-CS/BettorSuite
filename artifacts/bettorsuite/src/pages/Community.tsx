@@ -26,6 +26,7 @@ interface Post {
   id: number;
   userId: number;
   username: string;
+  displayName: string | null;
   avatarUrl: string | null;
   nickname: string | null;
   presenceStatus: PresenceStatus;
@@ -172,8 +173,14 @@ export default function Community() {
                     <div className="flex items-start justify-between gap-3">
                       <Link href={`/profile/${post.userId}`}>
                         <span className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-primary hover:underline">
-                          <span className="relative inline-flex"><Avatar className="h-7 w-7"><AvatarImage src={post.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[8px]">{post.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={post.presenceStatus} /></span>
-                          <span>{post.nickname || `@${post.username}`}</span>
+                          <span className="relative inline-flex"><Avatar className="h-7 w-7"><AvatarImage src={post.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[8px]">{post.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={post.presenceStatus} size="xs" /></span>
+                          <span>{post.displayName || post.username}</span>
+                          {post.nickname ? (
+                            <>
+                              <span className="text-slate-400" aria-hidden="true">&middot;</span>
+                              <span className="font-sans text-[11px] font-medium text-slate-500">{post.nickname}</span>
+                            </>
+                          ) : null}
                         </span>
                       </Link>
                       {canDelete && !isEditing &&

@@ -24,7 +24,7 @@ export async function ensureAdminAccount(logger: Logger) {
     }
     await db
       .update(usersTable)
-      .set({ username: officialUsername, displayName: "Admin" })
+      .set({ username: officialUsername })
       .where(eq(usersTable.id, legacyAdmin.id));
     logger.info({ userId: legacyAdmin.id }, "Official admin identity updated");
   }
@@ -56,7 +56,7 @@ export async function ensureAdminAccount(logger: Logger) {
     }
     await db
       .update(usersTable)
-      .set({ role: "admin", username, displayName: "Admin" })
+      .set({ role: "admin", username })
       .where(eq(usersTable.id, existing.id));
     logger.info({ userId: existing.id }, "Admin account is ready");
     return;

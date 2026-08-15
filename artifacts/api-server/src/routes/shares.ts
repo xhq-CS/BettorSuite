@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import type { AuthRequest } from "../middleware/auth";
 import { mockBetSnapshot, trackerBetSnapshot } from "../lib/betSnapshots";
+import { conversationInteractionBlocked } from "../lib/safety";
 import {
   groupPostingStatus,
   POSTING_DISABLED_MESSAGE,
@@ -105,6 +106,8 @@ sharesRouter.post("/bet", async (req, res) => {
       );
     if (!participant)
       return void res.status(404).json({ error: "Conversation not found" });
+    if (await conversationInteractionBlocked(conversationId, userId))
+      return void res.status(403).json({ error: "Sharing is unavailable between these accounts." });
     const [message] = await db
       .insert(messagesTable)
       .values({

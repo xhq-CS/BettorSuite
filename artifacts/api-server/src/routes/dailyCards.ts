@@ -12,6 +12,7 @@ import {
 import type { AuthRequest } from "../middleware/auth";
 import { trackerBetSnapshot } from "../lib/betSnapshots";
 import { getDailyCard } from "../lib/dailyCards";
+import { conversationInteractionBlocked } from "../lib/safety";
 import {
   groupPostingStatus,
   POSTING_DISABLED_MESSAGE,
@@ -98,6 +99,8 @@ dailyCardsRouter.post("/", async (req, res) => {
     return void res
       .status(400)
       .json({ error: "Choose a direct-message conversation" });
+  if (destination === "dm" && await conversationInteractionBlocked(conversationId, userId))
+    return void res.status(403).json({ error: "Sharing is unavailable between these accounts." });
 
   const bets = await db
     .select()
@@ -198,6 +201,7 @@ dailyCardsRouter.post("/:id/share", async (req, res) => {
     await db.insert(groupMessagesTable).values({ groupId, senderId: userId, content, dailyCardId: cardId });
   } else if (destination === "dm") {
     if (!(await isConversationMember(conversationId, userId))) return void res.status(404).json({ error: "Conversation not found" });
+    if (await conversationInteractionBlocked(conversationId, userId)) return void res.status(403).json({ error: "Sharing is unavailable between these accounts." });
     await db.insert(messagesTable).values({ conversationId, senderId: userId, content, dailyCardId: cardId });
   } else {
     return void res.status(400).json({ error: "Choose where to repost this card" });

@@ -5,7 +5,7 @@ const MAX_ATTEMPTS = 12;
 const attempts = new Map<string, { count: number; resetAt: number }>();
 
 export function authRateLimit(req: Request, res: Response, next: NextFunction) {
-  if (req.method !== "POST" || !["/login", "/admin-login", "/register"].includes(req.path)) return next();
+  if (req.method !== "POST" || !["/login", "/admin-login", "/register", "/forgot-password", "/reset-password", "/privacy-requests"].includes(req.path)) return next();
   const now = Date.now();
   if (attempts.size > 10_000) {
     for (const [storedKey, value] of attempts) if (value.resetAt <= now) attempts.delete(storedKey);

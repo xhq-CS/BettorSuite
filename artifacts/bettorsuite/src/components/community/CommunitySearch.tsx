@@ -129,7 +129,7 @@ export function CommunitySearch({
                             .slice(0, 2)
                             .toUpperCase()}
                         </AvatarFallback>
-                      </Avatar><PresenceIndicator status={person.presenceStatus} /></span>
+                      </Avatar><PresenceIndicator status={person.presenceStatus} size="md" /></span>
                       <span className="min-w-0">
                         <span className="block truncate text-sm font-semibold">
                           {person.nickname || person.displayName || person.username}

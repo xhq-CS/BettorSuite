@@ -50,7 +50,7 @@ function PodiumCard({ entry }: { entry: Entry }) {
           <span className="relative inline-flex"><Avatar className="h-11 w-11 border border-white shadow-sm">
             <AvatarImage src={entry.avatarUrl ?? undefined} alt="" />
             <AvatarFallback className="bg-slate-950 text-sm font-bold text-white">{entry.username.slice(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar><PresenceIndicator status={entry.presenceStatus} /></span>
+          </Avatar><PresenceIndicator status={entry.presenceStatus} size="md" /></span>
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
               {entry.rank === 1 ? (
@@ -162,7 +162,7 @@ export default function Leaderboard() {
                   <TableCell>
                     <Link href={`/profile/${entry.userId}`}>
                       <div className="flex cursor-pointer items-center gap-2.5 hover:text-blue-600">
-                        <span className="relative inline-flex"><Avatar className="h-8 w-8"><AvatarImage src={entry.avatarUrl ?? undefined} alt="" /><AvatarFallback className="bg-slate-900 text-[10px] font-bold text-white">{entry.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={entry.presenceStatus} /></span>
+                        <span className="relative inline-flex"><Avatar className="h-8 w-8"><AvatarImage src={entry.avatarUrl ?? undefined} alt="" /><AvatarFallback className="bg-slate-900 text-[10px] font-bold text-white">{entry.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={entry.presenceStatus} size="sm" /></span>
                         <span><span className="block font-semibold">{entry.nickname || `@${entry.username}`}</span>{entry.nickname && <span className="block text-[10px] text-slate-500">@{entry.username}</span>}</span>
                       </div>
                     </Link>

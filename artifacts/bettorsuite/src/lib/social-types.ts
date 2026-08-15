@@ -42,6 +42,8 @@ export interface BettorProfile {
   followersCount: number;
   followingCount: number;
   isFollowing: boolean;
+  isBlocked: boolean;
+  blockedByUser: boolean;
   nickname: string | null;
   presenceStatus: PresenceStatus;
   stats: ProfileStats;

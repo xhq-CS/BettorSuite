@@ -10,6 +10,7 @@ import {
   messagesTable,
   postLikesTable,
   postsTable,
+  reportsTable,
   trackerWalletTransactionsTable,
   usersTable,
 } from "@workspace/db";
@@ -31,13 +32,35 @@ async function audit(actor: number, target: number, action: string, reason: stri
 }
 
 adminRouter.get("/overview", async (_req, res) => {
-  const [[users], [bets], [open], recent] = await Promise.all([
+  const [[users], [bets], [open], [openReports], recent] = await Promise.all([
     db.select({ count: sql<number>`count(*)::int` }).from(usersTable),
     db.select({ count: sql<number>`count(*)::int` }).from(betsTable),
     db.select({ count: sql<number>`count(*)::int` }).from(betsTable).where(eq(betsTable.status, "pending")),
+    db.select({ count: sql<number>`count(*)::int` }).from(reportsTable).where(or(eq(reportsTable.status, "open"), eq(reportsTable.status, "reviewing"))),
     db.select().from(adminAuditLogsTable).orderBy(desc(adminAuditLogsTable.createdAt)).limit(20),
   ]);
-  return res.json({ users: users.count, bets: bets.count, pendingBets: open.count, recent });
+  return res.json({ users: users.count, bets: bets.count, pendingBets: open.count, openReports: openReports.count, recent });
+});
+
+adminRouter.get("/reports", async (req, res) => {
+  const status = String(req.query.status ?? "open");
+  const rows = await db.select().from(reportsTable)
+    .where(status === "all" ? undefined : status === "active" ? or(eq(reportsTable.status, "open"), eq(reportsTable.status, "reviewing")) : eq(reportsTable.status, status))
+    .orderBy(desc(reportsTable.createdAt)).limit(200);
+  return res.json(rows.map((report) => ({ ...report, createdAt: report.createdAt.toISOString(), reviewedAt: report.reviewedAt?.toISOString() ?? null })));
+});
+
+adminRouter.patch("/reports/:id", async (req, res) => {
+  const id = Number(req.params.id);
+  const status = String(req.body.status ?? "");
+  const resolution = String(req.body.resolution ?? "").trim();
+  if (!Number.isInteger(id) || !["open", "reviewing", "resolved", "dismissed"].includes(status)) return void res.status(400).json({ error: "Choose a valid report status." });
+  if (["resolved", "dismissed"].includes(status) && resolution.length < 3) return void res.status(400).json({ error: "Add a short resolution note." });
+  const [existing] = await db.select().from(reportsTable).where(eq(reportsTable.id, id));
+  if (!existing) return void res.status(404).json({ error: "Report not found." });
+  const [updated] = await db.update(reportsTable).set({ status, resolution: resolution || null, reviewedBy: actorId(req), reviewedAt: new Date() }).where(eq(reportsTable.id, id)).returning();
+  await audit(actorId(req), existing.reportedUserId ?? existing.reporterId ?? actorId(req), "report.reviewed", resolution || `Status changed to ${status}`, { reportId: id, status });
+  return res.json(updated);
 });
 
 adminRouter.get("/users", async (req, res) => {

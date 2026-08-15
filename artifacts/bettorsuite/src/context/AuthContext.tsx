@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { api } from "@/lib/api";
 
 export type Account = { id: number; email: string; username: string; displayName: string | null; role: "user" | "admin" };
-type AuthValue = { user: Account | null; loading: boolean; login: (email: string, password: string) => Promise<void>; adminLogin: (email: string, password: string) => Promise<void>; register: (email: string, username: string, password: string) => Promise<void>; logout: () => Promise<void> };
+type AuthValue = { user: Account | null; loading: boolean; login: (email: string, password: string) => Promise<void>; adminLogin: (email: string, password: string) => Promise<void>; register: (email: string, username: string, password: string, acceptedTerms: boolean, ageConfirmed: boolean) => Promise<void>; logout: () => Promise<void> };
 const AuthContext = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -13,7 +13,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   const login = async (email: string, password: string) => setUser(await api<Account>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }));
   const adminLogin = async (email: string, password: string) => setUser(await api<Account>("/auth/admin-login", { method: "POST", body: JSON.stringify({ email, password }) }));
-  const register = async (email: string, username: string, password: string) => setUser(await api<Account>("/auth/register", { method: "POST", body: JSON.stringify({ email, username, password }) }));
+  const register = async (email: string, username: string, password: string, acceptedTerms: boolean, ageConfirmed: boolean) => setUser(await api<Account>("/auth/register", { method: "POST", body: JSON.stringify({ email, username, password, acceptedTerms, ageConfirmed }) }));
   const logout = async () => {
     await api("/presence", {
       method: "POST",

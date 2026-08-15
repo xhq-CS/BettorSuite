@@ -226,7 +226,7 @@ export default function DirectMessages() {
                   <div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-1.5">
                     {people.data?.map((person) => (
                       <div key={person.id} className="flex items-center gap-2 rounded-lg p-2 hover:bg-slate-50">
-                        <span className="relative inline-flex"><Avatar className="h-8 w-8"><AvatarImage src={person.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[9px]">{person.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={person.presenceStatus} /></span>
+                        <span className="relative inline-flex"><Avatar className="h-8 w-8"><AvatarImage src={person.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[9px]">{person.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={person.presenceStatus} size="sm" /></span>
                         <button type="button" onClick={() => startConversation.mutate(person.id)} className="min-w-0 flex-1 text-left">
                           <div className="truncate text-sm font-semibold">{person.nickname || person.displayName || person.username}</div>
                           <div className="truncate text-[10px] text-slate-500">@{person.username}</div>
@@ -263,7 +263,7 @@ export default function DirectMessages() {
                         <AvatarImage src={conversation.participantAvatarUrl ?? undefined} alt="" />
                         <AvatarFallback className="text-xs font-bold">{conversation.participantUsername.slice(0, 2).toUpperCase()}</AvatarFallback>
                       </Avatar>
-                      <PresenceIndicator status={conversation.participantPresenceStatus} />
+                      <PresenceIndicator status={conversation.participantPresenceStatus} size="md" />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
@@ -295,8 +295,8 @@ export default function DirectMessages() {
             <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
               <Link href={activeConversation ? `/profile/${activeConversation.participantId}` : "/messages"}>
                 <div className="flex cursor-pointer items-center gap-3">
-                  <span className="relative inline-flex"><Avatar className="h-9 w-9"><AvatarImage src={activeConversation?.participantAvatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[10px]">{activeConversation?.participantUsername.slice(0, 2).toUpperCase() || "DM"}</AvatarFallback></Avatar><PresenceIndicator status={activeConversation?.participantPresenceStatus} /></span>
-                  <div><div className="text-sm font-bold">{activeConversation?.participantNickname || activeConversation?.participantDisplayName || activeConversation?.participantUsername || "Conversation"}</div><PresenceIndicator status={activeConversation?.participantPresenceStatus} showLabel /></div>
+                  <span className="relative inline-flex"><Avatar className="h-9 w-9"><AvatarImage src={activeConversation?.participantAvatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[10px]">{activeConversation?.participantUsername.slice(0, 2).toUpperCase() || "DM"}</AvatarFallback></Avatar><PresenceIndicator status={activeConversation?.participantPresenceStatus} size="md" /></span>
+                  <div><div className="text-sm font-bold">{activeConversation?.participantNickname || activeConversation?.participantDisplayName || activeConversation?.participantUsername || "Conversation"}</div><div className="text-[10px] text-slate-500">Private · 1 on 1</div></div>
                 </div>
               </Link>
               <div className="flex flex-wrap items-center justify-end gap-2">

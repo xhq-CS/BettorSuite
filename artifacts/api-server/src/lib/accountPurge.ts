@@ -3,6 +3,11 @@ import { eq, sql } from "drizzle-orm";
 
 export async function purgeAccountData(userId: number, deleteLogin = false) {
   await db.transaction(async (tx) => {
+    await tx.execute(sql`delete from password_reset_tokens where user_id = ${userId}`);
+    await tx.execute(sql`delete from user_blocks where blocker_id = ${userId} or blocked_id = ${userId}`);
+    await tx.execute(sql`update reports set reporter_id = null where reporter_id = ${userId}`);
+    await tx.execute(sql`update reports set reported_user_id = null where reported_user_id = ${userId}`);
+    await tx.execute(sql`update reports set reviewed_by = null where reviewed_by = ${userId}`);
     await tx.execute(sql`delete from post_likes where user_id = ${userId} or post_id in (select id from posts where user_id = ${userId})`);
     await tx.execute(sql`delete from posts where user_id = ${userId}`);
     await tx.execute(sql`delete from group_messages where sender_id = ${userId} or group_id in (select id from groups where creator_id = ${userId})`);

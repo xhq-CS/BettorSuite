@@ -24,6 +24,9 @@ export const usersTable = pgTable("users", {
   warRoomMuted: boolean("war_room_muted").default(false).notNull(),
   warRoomMutedAt: timestamp("war_room_muted_at"),
   warRoomMutedBy: integer("war_room_muted_by"),
+  termsAcceptedAt: timestamp("terms_accepted_at"),
+  privacyAcceptedAt: timestamp("privacy_accepted_at"),
+  ageConfirmedAt: timestamp("age_confirmed_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -33,6 +36,18 @@ export const sessionsTable = pgTable("sessions", {
   tokenHash: text("token_hash").notNull().unique(),
   expiresAt: timestamp("expires_at").notNull(),
   revoked: boolean("revoked").default(false).notNull(),
+  userAgent: text("user_agent"),
+  ipAddress: text("ip_address"),
+  lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const passwordResetTokensTable = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => usersTable.id, { onDelete: "cascade" }).notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

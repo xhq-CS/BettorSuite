@@ -6,6 +6,7 @@ import {
   groupMembersTable,
   groupMessagesTable,
   groupsTable,
+  userBlocksTable,
   usersTable,
 } from "@workspace/db";
 import type { AuthRequest } from "../middleware/auth";
@@ -410,7 +411,7 @@ groupsRouter.get("/:id/messages", async (req, res) => {
     return void res
       .status(403)
       .json({ error: "Join this group to view messages" });
-  const rows = await db
+  const messageRows = await db
     .select({
       id: groupMessagesTable.id,
       senderId: groupMessagesTable.senderId,
@@ -429,6 +430,12 @@ groupsRouter.get("/:id/messages", async (req, res) => {
     .where(eq(groupMessagesTable.groupId, groupId))
     .orderBy(groupMessagesTable.createdAt)
     .limit(200);
+  const blockRows = await db.select({ blockerId: userBlocksTable.blockerId, blockedId: userBlocksTable.blockedId }).from(userBlocksTable).where(or(
+    eq(userBlocksTable.blockerId, userId),
+    eq(userBlocksTable.blockedId, userId),
+  ));
+  const blockedIds = new Set(blockRows.map((row) => row.blockerId === userId ? row.blockedId : row.blockerId));
+  const rows = messageRows.filter((message) => message.senderId === userId || !blockedIds.has(message.senderId));
   const nicknames = await privateNicknameMap(
     userId,
     rows.map((message) => message.senderId),

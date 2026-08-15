@@ -14,11 +14,13 @@ import { requireAuth } from "../middleware/auth";
 import { requireAdmin } from "../middleware/auth";
 import { adminRouter } from "./admin";
 import { presenceRouter } from "./presence";
+import { publicSafetyRouter, safetyRouter } from "./safety";
 
 const router = Router();
 
 router.use("/", healthRouter);
 router.use("/auth", authRouter);
+router.use("/legal", publicSafetyRouter);
 router.use(requireAuth);
 router.use("/admin", requireAdmin, adminRouter);
 router.use("/presence", presenceRouter);
@@ -31,5 +33,6 @@ router.use("/groups", groupsRouter);
 router.use("/shares", sharesRouter);
 router.use("/conversations", conversationsRouter);
 router.use("/daily-cards", dailyCardsRouter);
+router.use("/safety", safetyRouter);
 
 export default router;

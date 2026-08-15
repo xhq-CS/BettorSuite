@@ -3,6 +3,38 @@
 All notable BettorSuite releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [2.7.0] - 2026-08-15
+
+### Added
+
+- An interactive signed-out landing experience that previews Book Keeper, Mock Betting, Daily Cards, public profiles, and the community before account creation.
+- One-time password recovery with hashed 30-minute reset tokens, generic request responses, and transactional email support through Resend.
+- An account Security page for password changes, active-session review, individual session revocation, and remote sign-out.
+- User blocking, private safety reports, and privacy-rights requests with an administrator-only review inbox.
+- Public Privacy Policy, Terms of Use, Community Guidelines, Responsible Gambling, and Privacy Request pages.
+- Launch-ready Open Graph and X/Twitter metadata with dedicated BettorSuite share artwork.
+- Database schema and migration support for reset tokens, policy consent, session metadata, user blocks, safety reports, and privacy requests.
+
+### Changed
+
+- Signed-out visitors now enter through the product landing page while `/login` and `/signup` remain dedicated account routes.
+- Blocking is enforced across profiles, search, follows, Direct Messages, shared slips, group content, and the public War Room.
+- Administrator tooling now includes report review, privacy-request status management, and safer account investigation context.
+- Search-engine rules now allow the public launch and legal pages to be indexed.
+
+### Security
+
+- Password resets invalidate every existing session after the password is changed.
+- Reset tokens are single-use and never stored in plaintext.
+- Recovery responses do not reveal whether an email address belongs to an account.
+- Password recovery and sensitive account actions use dedicated rate limits and authenticated ownership checks.
+- Server-side filters prevent blocked accounts from bypassing interface restrictions through direct API calls.
+
+### Deployment
+
+- Added `RESEND_API_KEY` and `EMAIL_FROM` configuration for recovery email. The sender must be verified before password recovery can deliver production messages.
+- Added `lib/db/migrations/v2.7.0.sql` for existing databases; new environments are also covered by the current Drizzle schema.
+
 ## [2.6.0] - 2026-07-31
 
 ### Bug Fixes
@@ -212,6 +244,7 @@ The first deployable BettorStats release replaced manual betting records with on
 - Community foundations with groups, group chat, the public War Room, and leaderboard.
 - Admin login and production-ready Vercel routing, API bundling, security headers, and database configuration.
 
+[2.7.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.5.3...v2.6.0
 [2.5.3]: https://github.com/xhq-CS/BettorSuite/compare/v2.5.0...v2.5.3
 [2.5.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.4.0...v2.5.0

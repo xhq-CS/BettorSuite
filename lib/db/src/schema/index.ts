@@ -7,3 +7,4 @@ export * from "./community";
 export * from "./groups";
 export * from "./trackerWallet";
 export * from "./admin";
+export * from "./safety";

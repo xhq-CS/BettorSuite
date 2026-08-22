@@ -53,6 +53,8 @@ import {
   Trash2,
   Share2,
   Trophy,
+  TrendingDown,
+  TrendingUp,
 } from "lucide-react";
 import { format } from "date-fns";
 import { BetCalendar } from "@/components/BetCalendar";
@@ -116,6 +118,95 @@ async function patchUnitSettings(
 function formatUnits(value: number, unitSize: number, showSign = true) {
   const units = unitSize > 0 ? value / unitSize : 0;
   return `${showSign && units > 0 ? "+" : ""}${units.toFixed(2)}u`;
+}
+
+function StrategyPerformance({
+  loading,
+  totalProfit,
+  unitSize,
+  wins,
+  losses,
+  winRate,
+}: {
+  loading: boolean;
+  totalProfit: number;
+  unitSize: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+}) {
+  const decidedBets = wins + losses;
+  const winRatePercent = Math.max(0, Math.min(100, winRate * 100));
+  const profitable = totalProfit >= 0;
+  const TrendIcon = profitable ? TrendingUp : TrendingDown;
+
+  return (
+    <Card className="relative overflow-hidden border-border bg-card shadow-sm lg:col-span-2">
+      <div
+        className={`pointer-events-none absolute inset-y-0 left-0 w-40 bg-gradient-to-r ${profitable ? "from-emerald-500/10" : "from-red-500/10"} to-transparent`}
+      />
+      <CardContent className="relative p-4 sm:p-5">
+        {loading ? (
+          <div className="flex animate-pulse items-center gap-4">
+            <div className="h-11 w-11 shrink-0 rounded-xl bg-muted" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-40 rounded bg-muted" />
+              <div className="h-2 rounded bg-muted" />
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div
+              className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${profitable ? "bg-emerald-500/10 text-emerald-600" : "bg-red-500/10 text-red-600"}`}
+            >
+              <TrendIcon className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                <div>
+                  <h2 className="font-display text-sm font-bold">
+                    Strategy Performance
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    {decidedBets > 0
+                      ? `${decidedBets} decided mock ${decidedBets === 1 ? "bet" : "bets"} · ${wins}W–${losses}L`
+                      : "Settle a win or loss to start scoring your strategy"}
+                  </p>
+                </div>
+                <div className="flex items-baseline gap-4">
+                  <span
+                    className={`font-mono text-sm font-bold ${profitable ? "text-emerald-600" : "text-red-600"}`}
+                  >
+                    {formatUnits(totalProfit, unitSize)}
+                  </span>
+                  <span className="font-mono text-base font-black text-foreground">
+                    {winRatePercent.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+              <div
+                className="mt-3 h-2 overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+                aria-label="Mock betting strategy win rate"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Number(winRatePercent.toFixed(1))}
+              >
+                <div
+                  className={`h-full rounded-full transition-[width] duration-500 ${profitable ? "bg-gradient-to-r from-amber-300 via-emerald-400 to-cyan-400" : "bg-gradient-to-r from-amber-300 to-red-500"}`}
+                  style={{ width: `${winRatePercent}%` }}
+                />
+              </div>
+              <div className="mt-1.5 flex justify-between text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                <span>Net units</span>
+                <span>Win rate</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 // ── Modal shell ───────────────────────────────────────────────────
@@ -860,6 +951,15 @@ export default function Simulator() {
               </div>
             </CardContent>
           </Card>
+
+          <StrategyPerformance
+            loading={walletLoading}
+            totalProfit={Number(wallet?.totalProfit ?? 0)}
+            unitSize={unitSize}
+            wins={wallet?.wins ?? 0}
+            losses={wallet?.losses ?? 0}
+            winRate={Number(wallet?.winRate ?? 0)}
+          />
 
           <Card className="border-border bg-card flex flex-col shadow-sm lg:col-span-2 min-w-0">
             <CardHeader className="pb-0 border-b border-border">

@@ -1,17 +1,9 @@
-import { useState } from "react";
 import { Link } from "wouter";
-import { ArrowRight, BarChart3, Check, Gamepad2, Layers3, LockKeyhole, MessageCircleMore, ShieldCheck, Sparkles, Target, Trophy, Users } from "lucide-react";
+import { ArrowRight, Check, Gamepad2, Layers3, LockKeyhole, MessageCircleMore, ShieldCheck, Sparkles, Target, Trophy, Users } from "lucide-react";
 import { PublicPage } from "@/components/public/PublicChrome";
-
-const previews = {
-  keeper: { label: "Book Keeper", icon: Target, balance: "$1,841.32", profit: "+$304.50", rate: "62.5%", accent: "text-emerald-400", chart: "M0 78 C40 70 54 84 88 58 S140 62 172 38 S218 54 260 24 S312 32 360 10" },
-  mock: { label: "Mock Betting", icon: Gamepad2, balance: "$5,000.00", profit: "+18.4u", rate: "58.1%", accent: "text-amber-300", chart: "M0 82 C34 88 66 50 96 66 S150 40 184 54 S236 18 270 32 S326 15 360 20" },
-  community: { label: "Community", icon: Users, balance: "12 groups", profit: "24 picks", rate: "7 online", accent: "text-blue-300", chart: "M0 70 C50 20 82 85 124 48 S190 74 220 34 S290 54 360 12" },
-};
+import { ProductShowcase } from "@/components/public/ProductShowcase";
 
 export default function Landing() {
-  const [active, setActive] = useState<keyof typeof previews>("keeper");
-  const preview = previews[active];
   return <PublicPage darkHeader>
     <main className="overflow-hidden bg-[#07101f] text-white">
       <section className="relative border-b border-white/10">
@@ -27,15 +19,7 @@ export default function Landing() {
           </div>
           <div className="relative">
             <div className="absolute -inset-8 rounded-full bg-blue-500/15 blur-3xl" />
-            <div className="relative overflow-hidden rounded-2xl border border-white/15 bg-[#0d1728]/95 shadow-2xl shadow-black/40">
-              <div className="flex border-b border-white/10 bg-white/[.025] p-2">{Object.entries(previews).map(([key, item]) => { const Icon=item.icon; return <button key={key} onClick={()=>setActive(key as keyof typeof previews)} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-xs font-bold transition ${active===key?"bg-blue-500 text-white":"text-slate-400 hover:bg-white/5 hover:text-white"}`}><Icon className="h-3.5 w-3.5" />{item.label}</button>; })}</div>
-              <div className="p-5 sm:p-7">
-                <div className="flex items-start justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-slate-500">Live preview</p><h2 className="mt-1 text-xl font-bold">{preview.label}</h2></div><span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-bold text-emerald-300">PRIVATE BY DEFAULT</span></div>
-                <div className="mt-6 grid grid-cols-3 gap-2">{[[active==="community"?"Spaces":"Wallet",preview.balance],[active==="community"?"Shared":"Net profit",preview.profit],[active==="community"?"Presence":"Win rate",preview.rate]].map(([label,value],i)=><div key={label} className="rounded-xl border border-white/10 bg-white/[.035] p-3"><p className="text-[9px] uppercase tracking-wider text-slate-500">{label}</p><p className={`mt-1 truncate font-mono text-sm font-bold ${i===1?preview.accent:"text-white"}`}>{value}</p></div>)}</div>
-                <div className="mt-4 rounded-xl border border-white/10 bg-[#091221] p-4"><div className="flex items-center justify-between"><div><p className="text-xs font-bold">{active==="community"?"Community momentum":"Profit trend"}</p><p className="text-[10px] text-slate-500">A clear signal, without the noise.</p></div><BarChart3 className="h-4 w-4 text-blue-400" /></div><svg viewBox="0 0 360 100" className="mt-4 h-28 w-full overflow-visible"><defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#3b82f6" stopOpacity=".35"/><stop offset="1" stopColor="#3b82f6" stopOpacity="0"/></linearGradient></defs><path d={`${preview.chart} L360 100 L0 100 Z`} fill="url(#fill)"/><path d={preview.chart} fill="none" stroke="#60a5fa" strokeWidth="3" strokeLinecap="round"/></svg></div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-2"><div className="rounded-xl border border-white/10 p-3"><div className="flex items-center justify-between text-[10px] text-slate-500"><span>LATEST PLAY</span><span className="text-emerald-400">WON</span></div><p className="mt-2 text-sm font-semibold">Knicks -3.5</p><p className="mt-1 font-mono text-xs text-slate-400">+110 · +2.75u</p></div><div className="rounded-xl border border-white/10 p-3"><div className="flex items-center justify-between text-[10px] text-slate-500"><span>7-DAY FORM</span><span>6–1</span></div><div className="mt-3 flex gap-1.5">{[1,1,1,0,1,1,1].map((win,i)=><span key={i} className={`grid h-6 w-6 place-items-center rounded-md text-[10px] font-black ${win?"bg-emerald-400/15 text-emerald-300":"bg-red-400/15 text-red-300"}`}>{win?"✓":"×"}</span>)}</div></div></div>
-              </div>
-            </div>
+            <ProductShowcase />
           </div>
         </div>
       </section>

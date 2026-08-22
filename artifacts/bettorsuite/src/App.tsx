@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Route, Switch, Router as WouterRouter, useLocation } from "wouter";
+import { Redirect, Route, Switch, Router as WouterRouter, useLocation } from "wouter";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ThemeProvider, useTheme } from "@/context/ThemeContext";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -31,6 +31,8 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false,
 
 function PrivateRouter() {
   return <AppLayout><Suspense fallback={<PageLoading />}><Switch>
+    <Route path="/login"><Redirect to="/tracker" /></Route>
+    <Route path="/signup"><Redirect to="/tracker" /></Route>
     <Route path="/" component={BetTracker} />
     <Route path="/tracker" component={BetTracker} />
     <Route path="/mock-betting" component={Simulator} />

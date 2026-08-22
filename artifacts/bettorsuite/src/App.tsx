@@ -50,7 +50,7 @@ function PrivateRouter() {
 }
 
 function PageLoading() { return <div className="min-h-[40vh] flex items-center justify-center text-sm text-muted-foreground" role="status">Loading…</div>; }
-function ThemedToaster() { const { theme } = useTheme(); return <Toaster theme={theme} position="bottom-right" duration={3000} closeButton toastOptions={{ classNames: { closeButton: "!border-red-200 !bg-red-50 !text-red-600 hover:!bg-red-100" } }} />; }
+function ThemedToaster() { const { theme } = useTheme(); return <Toaster theme={theme} position="bottom-right" duration={3000} closeButton toastOptions={{ classNames: { closeButton: "!border-destructive/30 !bg-destructive/10 !text-destructive hover:!bg-destructive/20" } }} />; }
 
 function App() {
   return <ThemeProvider><QueryClientProvider client={queryClient}><AuthProvider><TooltipProvider><WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}><AuthenticatedApp /></WouterRouter><ThemedToaster /></TooltipProvider><Analytics /><SpeedInsights /></AuthProvider></QueryClientProvider></ThemeProvider>;
@@ -59,7 +59,7 @@ function App() {
 function AuthenticatedApp() {
   const { user, loading } = useAuth();
   const [location] = useLocation();
-  if (loading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center text-muted-foreground">Loading…</div>;
+  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Loading…</div>;
   const legalRoutes: Record<string, string> = { "/privacy": "privacy", "/terms": "terms", "/community-guidelines": "community-guidelines", "/responsible-gambling": "responsible-gambling" };
   if (legalRoutes[location]) return <Suspense fallback={<PageLoading />}><LegalPage slug={legalRoutes[location]} /></Suspense>;
   if (location === "/privacy-request") return <Suspense fallback={<PageLoading />}><PrivacyRequest /></Suspense>;

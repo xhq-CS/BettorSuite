@@ -2,8 +2,9 @@ import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useMessageNotifications } from "@/hooks/use-message-notifications";
+import { useTheme } from "@/context/ThemeContext";
 import {
-  Target, Gamepad2, Users, Trophy, UserRound, LogOut, MessagesSquare, ShieldCheck, LockKeyhole,
+  Target, Gamepad2, Users, Trophy, UserRound, LogOut, MessagesSquare, ShieldCheck, LockKeyhole, Moon, Sun,
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +20,7 @@ const navItems = [
 export function Sidebar() {
   const [location] = useLocation();
   const { user, logout } = useAuth();
+  const { theme, toggle } = useTheme();
   const notifications = useMessageNotifications();
   const visibleNavItems = user?.role === "admin"
     ? [...navItems, { href: "/admin", label: "Control Room", icon: ShieldCheck }]
@@ -75,6 +77,15 @@ export function Sidebar() {
       {/* Bottom row */}
       <div className="px-3 pb-5 space-y-1 border-t border-border pt-3">
         <div className="px-3 pb-2"><p className="text-xs font-medium truncate">@{user?.username}</p></div>
+        <button
+          type="button"
+          onClick={toggle}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-all"
+          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+        >
+          {theme === "dark" ? <Sun className="w-4 h-4 shrink-0" /> : <Moon className="w-4 h-4 shrink-0" />}
+          <span className="font-display font-medium">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
+        </button>
         <button
           onClick={logout}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground transition-all"

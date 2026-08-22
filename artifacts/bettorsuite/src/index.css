@@ -46,52 +46,52 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* ─── Dark theme (default) — neutral dark gray + white ─────────── */
+/* ─── Dark theme — landing-page navy + showcase gold and mint ─── */
 html.dark {
-  --background: 0 0% 8%;
-  --foreground: 0 0% 93%;
+  --background: 218 52% 7%;
+  --foreground: 214 32% 95%;
 
-  --border: 0 0% 17%;
-  --input: 0 0% 17%;
-  --ring: 213 94% 58%;
+  --border: 218 29% 20%;
+  --input: 218 29% 22%;
+  --ring: 47 100% 63%;
 
-  --card: 0 0% 11%;
-  --card-foreground: 0 0% 93%;
+  --card: 218 40% 11%;
+  --card-foreground: 214 32% 95%;
 
-  --popover: 0 0% 11%;
-  --popover-foreground: 0 0% 93%;
+  --popover: 218 42% 10%;
+  --popover-foreground: 214 32% 95%;
 
-  --sidebar: 0 0% 6%;
-  --sidebar-foreground: 0 0% 93%;
-  --sidebar-border: 0 0% 14%;
-  --sidebar-primary: 213 94% 58%;
-  --sidebar-primary-foreground: 0 0% 100%;
-  --sidebar-accent: 0 0% 14%;
-  --sidebar-accent-foreground: 0 0% 93%;
-  --sidebar-ring: 213 94% 58%;
+  --sidebar: 220 51% 8%;
+  --sidebar-foreground: 214 32% 95%;
+  --sidebar-border: 218 29% 18%;
+  --sidebar-primary: 47 100% 63%;
+  --sidebar-primary-foreground: 220 51% 8%;
+  --sidebar-accent: 218 34% 15%;
+  --sidebar-accent-foreground: 214 32% 95%;
+  --sidebar-ring: 47 100% 63%;
 
-  --primary: 213 94% 58%;
-  --primary-foreground: 0 0% 100%;
+  --primary: 47 100% 63%;
+  --primary-foreground: 220 51% 8%;
 
-  --secondary: 0 0% 16%;
-  --secondary-foreground: 0 0% 93%;
+  --secondary: 218 32% 16%;
+  --secondary-foreground: 214 32% 95%;
 
-  --muted: 0 0% 14%;
-  --muted-foreground: 0 0% 50%;
+  --muted: 218 31% 14%;
+  --muted-foreground: 215 18% 61%;
 
-  --accent: 0 0% 16%;
-  --accent-foreground: 0 0% 93%;
+  --accent: 218 31% 18%;
+  --accent-foreground: 214 32% 95%;
 
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
 
-  --chart-1: 213 94% 58%;
-  --chart-2: 142 71% 45%;
-  --chart-3: 38 92% 50%;
-  --chart-4: 270 67% 58%;
+  --chart-1: 47 100% 63%;
+  --chart-2: 166 76% 62%;
+  --chart-3: 213 94% 68%;
+  --chart-4: 270 82% 74%;
   --chart-5: 0 72% 51%;
 
-  --radius: 0.5rem;
+  --radius: 0.75rem;
 }
 
 /* ─── Light theme — pure white + near-black ─────────────────────── */
@@ -157,3 +157,69 @@ html.light {
   .text-negative { color: #ef4444; }
   .bg-negative   { background-color: #ef4444; }
 }
+
+/* Legacy screens still use a few light-only Tailwind colors. Keep the public
+   site's white sections intact while translating those utilities inside the
+   signed-in product and its portaled dialogs. */
+html.dark body.authenticated-theme :is([class~="bg-white"], [class~="bg-slate-50"], [class~="bg-slate-100"]) {
+  background-color: hsl(var(--card));
+}
+
+html.dark body.authenticated-theme :is([class~="bg-white/70"], [class~="bg-white/80"], [class~="bg-white/90"]) {
+  background-color: hsl(var(--card) / 0.9);
+}
+
+html.dark body.authenticated-theme :is([class~="bg-blue-50"], [class~="bg-blue-50/40"], [class~="bg-blue-50/50"], [class~="bg-blue-50/70"]) {
+  background-color: rgb(96 165 250 / 0.1);
+}
+
+html.dark body.authenticated-theme :is([class~="bg-emerald-50"], [class~="bg-emerald-50/50"], [class~="bg-emerald-50/70"]) {
+  background-color: rgb(94 234 212 / 0.1);
+}
+
+html.dark body.authenticated-theme :is([class~="bg-amber-50"], [class~="bg-amber-50/50"], [class~="bg-amber-50/70"]) {
+  background-color: rgb(253 224 71 / 0.1);
+}
+
+html.dark body.authenticated-theme :is([class~="bg-red-50"], [class~="bg-red-50/50"], [class~="bg-red-50/70"]) {
+  background-color: rgb(248 113 113 / 0.1);
+}
+
+html.dark body.authenticated-theme :is([class~="text-slate-950"], [class~="text-slate-900"], [class~="text-slate-800"], [class~="text-slate-700"]) {
+  color: hsl(var(--foreground));
+}
+
+html.dark body.authenticated-theme :is([class~="text-slate-600"], [class~="text-slate-500"]) {
+  color: hsl(var(--muted-foreground));
+}
+
+html.dark body.authenticated-theme :is([class~="border-slate-100"], [class~="border-slate-200"], [class~="border-slate-300"]) {
+  border-color: hsl(var(--border));
+}
+
+html.dark body.authenticated-theme :is([class~="text-emerald-600"], [class~="text-emerald-700"]) {
+  color: #5eead4;
+}
+
+html.dark body.authenticated-theme :is([class~="text-amber-600"], [class~="text-amber-700"]) {
+  color: #fde047;
+}
+
+html.dark body.authenticated-theme :is([class~="text-red-600"], [class~="text-red-700"]) {
+  color: #fca5a5;
+}
+
+html.dark body.authenticated-theme :is(button, a)[class~="bg-blue-500"],
+html.dark body.authenticated-theme :is(button, a)[class~="bg-blue-600"] {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+
+html.dark body.authenticated-theme :is(button, a)[class~="hover:bg-blue-400"]:hover,
+html.dark body.authenticated-theme :is(button, a)[class~="hover:bg-blue-500"]:hover,
+html.dark body.authenticated-theme :is(button, a)[class~="hover:bg-blue-600"]:hover {
+  background-color: hsl(var(--primary) / 0.9);
+}
+
+html.dark .text-positive { color: #5eead4; }
+html.dark .bg-positive { background-color: #5eead4; }

@@ -375,12 +375,12 @@ export default function GroupDetail() {
         </Card>
       ) : (
         <div className="grid lg:grid-cols-[1fr_300px] gap-4">
-          <Card className="min-h-[560px] flex flex-col">
+          <Card className="min-h-[560px] flex flex-col overflow-hidden border-border/80 bg-card">
             <CardHeader>
               <CardTitle>Group chat</CardTitle>
             </CardHeader>
             <CardContent className="flex-1 flex flex-col">
-              <div className="flex min-h-[320px] max-h-[430px] flex-1 flex-col gap-3 overflow-y-auto px-2 py-3">
+              <div className="flex min-h-[320px] max-h-[430px] flex-1 flex-col gap-3 overflow-y-auto rounded-xl border border-border/50 bg-slate-50/40 px-3 py-4 dark:bg-[#080f1b]">
                 {messages.data?.map((item) => {
                   const mine = item.senderId === user?.id;
                   const canEdit = mine || g.isPlatformAdmin;
@@ -419,7 +419,7 @@ export default function GroupDetail() {
                           className={`flex items-end gap-1.5 ${mine ? "flex-row-reverse" : ""}`}
                         >
                           <div
-                            className={`min-w-0 shadow-sm ${isEditing ? "w-[min(520px,72vw)] rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-slate-950" : hasAttachment ? "w-[min(600px,80vw)] rounded-2xl border border-slate-200 bg-slate-50 p-2 text-slate-950" : mine ? "rounded-[20px] rounded-br-md bg-[#0A84FF] px-4 py-2.5 text-white" : "rounded-[20px] rounded-bl-md bg-[#E9E9EB] px-4 py-2.5 text-slate-950"}`}
+                            className={`min-w-0 shadow-sm ${isEditing ? "w-[min(520px,72vw)] rounded-2xl border border-border bg-card px-4 py-2.5 text-foreground" : hasAttachment ? "w-[min(600px,80vw)] rounded-2xl border border-border/70 bg-card p-2 text-foreground shadow-black/20" : mine ? "rounded-[20px] rounded-br-md bg-blue-600 px-4 py-2.5 text-white" : "rounded-[20px] rounded-bl-md bg-[#E9E9EB] px-4 py-2.5 text-slate-950 dark:border dark:border-white/[0.04] dark:bg-[#1d2738] dark:text-slate-100"}`}
                           >
                             {isEditing ? (
                               <div className="space-y-2">
@@ -430,7 +430,7 @@ export default function GroupDetail() {
                                   }
                                   maxLength={2000}
                                   rows={3}
-                                  className="resize-y border-slate-200 bg-white"
+                                  className="resize-y border-border bg-background/60"
                                   autoFocus
                                 />
                                 <div className="flex justify-end gap-2">
@@ -489,7 +489,7 @@ export default function GroupDetail() {
                           {canDelete &&
                             !isEditing &&
                             (deletingId === item.id ? (
-                              <div className="mb-0.5 flex items-center gap-1 rounded-full border border-red-100 bg-white px-1.5 py-1 shadow-sm">
+                              <div className="mb-0.5 flex items-center gap-1 rounded-full border border-red-400/20 bg-card px-1.5 py-1 shadow-sm">
                                 <span className="ml-1 text-[11px] text-muted-foreground">
                                   Delete?
                                 </span>
@@ -582,7 +582,7 @@ export default function GroupDetail() {
                   event.preventDefault();
                   submit();
                 }}
-                className="flex items-end gap-2 border-t pt-4"
+                className="flex items-end gap-2 border-t border-border/70 pt-4"
               >
                 <Button
                   type="button"
@@ -612,13 +612,13 @@ export default function GroupDetail() {
                   placeholder="Message this group…"
                   maxLength={2000}
                   rows={2}
-                  className="max-h-40 min-h-[46px] resize-y rounded-2xl border-slate-300 bg-white px-4 py-3"
+                  className="max-h-40 min-h-[46px] resize-y rounded-2xl border-border bg-background/60 px-4 py-3 text-foreground placeholder:text-muted-foreground"
                   disabled={g.postingMuted}
                 />
                 <Button
                   type="submit"
                   size="icon"
-                  className="h-10 w-10 shrink-0 rounded-full bg-[#0A84FF] hover:bg-[#0077ED]"
+                  className="h-10 w-10 shrink-0 rounded-full"
                   aria-label="Send message"
                   disabled={g.postingMuted || !message.trim() || send.isPending}
                 >

@@ -35,19 +35,19 @@ type Entry = {
 function PodiumCard({ entry }: { entry: Entry }) {
   const colors =
     entry.rank === 1
-      ? "border-amber-300 bg-gradient-to-br from-amber-50 via-white to-yellow-50"
+      ? "border-amber-300/35 bg-gradient-to-br from-amber-300/[0.10] via-card to-card"
       : entry.rank === 2
-        ? "border-slate-300 bg-gradient-to-br from-slate-50 via-white to-slate-100/70"
-        : "border-orange-200 bg-gradient-to-br from-orange-50 via-white to-amber-50/50";
+        ? "border-blue-300/25 bg-gradient-to-br from-blue-300/[0.08] via-card to-card"
+        : "border-orange-300/25 bg-gradient-to-br from-orange-300/[0.08] via-card to-card";
   return (
     <Link href={`/profile/${entry.userId}`}>
     <Card className={`relative cursor-pointer overflow-hidden transition-transform hover:-translate-y-0.5 hover:shadow-md ${colors}`}>
-      <div className="absolute right-3 top-3 font-mono text-5xl font-black text-slate-900/[0.05]">
+      <div className="absolute right-3 top-3 font-mono text-5xl font-black text-foreground/[0.06]">
         {entry.rank}
       </div>
       <CardContent className="p-5">
         <div className="mb-4 flex items-center gap-3">
-          <span className="relative inline-flex"><Avatar className="h-11 w-11 border border-white shadow-sm">
+          <span className="relative inline-flex"><Avatar className="h-11 w-11 border border-border shadow-sm">
             <AvatarImage src={entry.avatarUrl ?? undefined} alt="" />
             <AvatarFallback className="bg-slate-950 text-sm font-bold text-white">{entry.username.slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar><PresenceIndicator status={entry.presenceStatus} size="md" /></span>
@@ -60,17 +60,17 @@ function PodiumCard({ entry }: { entry: Entry }) {
               )}{" "}
               Rank {entry.rank}
             </div>
-            <div className="truncate text-lg font-bold text-slate-950">{entry.nickname || `@${entry.username}`}</div>
+            <div className="truncate text-lg font-bold text-foreground">{entry.nickname || `@${entry.username}`}</div>
             {entry.nickname && <div className="truncate text-xs text-slate-500">@{entry.username}</div>}
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 border-y border-slate-200/80 py-3">
+        <div className="grid grid-cols-2 gap-3 border-y border-border/60 py-3">
           <div>
             <div className="text-[10px] uppercase tracking-wider text-slate-500">
               Net Profit
             </div>
             <div
-              className={`font-mono text-lg font-bold ${entry.totalProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}
+              className={`font-mono text-lg font-bold ${entry.totalProfit >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}
             >
               {entry.totalProfit >= 0 ? "+" : ""}
               {formatCurrency(entry.totalProfit)}
@@ -80,7 +80,7 @@ function PodiumCard({ entry }: { entry: Entry }) {
             <div className="text-[10px] uppercase tracking-wider text-slate-500">
               ROI
             </div>
-            <div className="font-mono text-lg font-bold text-slate-900">
+            <div className={`font-mono text-lg font-bold ${entry.roi >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}>
               {entry.roi >= 0 ? "+" : ""}
               {(entry.roi * 100).toFixed(1)}%
             </div>
@@ -106,7 +106,7 @@ export default function Leaderboard() {
     <div className="mx-auto max-w-6xl space-y-6">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
-          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-blue-600">
+          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-blue-700 dark:text-blue-300">
             <Flame className="h-4 w-4" /> Community Edge
           </div>
           <h1 className="text-3xl font-display font-bold tracking-tight">
@@ -117,8 +117,8 @@ export default function Leaderboard() {
             The Monday-to-Sunday strip is context, not the score.
           </p>
         </div>
-        <div className="rounded-lg border border-border bg-white px-3 py-2 text-xs text-muted-foreground">
-          <span className="font-semibold text-slate-800">Weekly pulse:</span>{" "}
+        <div className="rounded-xl border border-border bg-card px-3 py-2 text-xs text-muted-foreground shadow-sm shadow-black/10">
+          <span className="font-semibold text-foreground">Weekly pulse:</span>{" "}
           green = profit · red = loss · gray = no action or break-even
         </div>
       </div>
@@ -131,8 +131,8 @@ export default function Leaderboard() {
         </div>
       )}
 
-      <Card className="overflow-hidden border-slate-200 shadow-sm">
-        <CardHeader className="border-b border-border bg-slate-50/70 py-4">
+      <Card className="overflow-hidden border-border/80 bg-card shadow-sm shadow-black/10">
+        <CardHeader className="border-b border-border/60 bg-muted/20 py-4">
           <CardTitle className="flex items-center gap-2 text-base">
             <Trophy className="h-4 w-4 text-amber-500" /> Global Rankings
           </CardTitle>
@@ -154,14 +154,14 @@ export default function Leaderboard() {
               {entries.map((entry) => (
                 <TableRow
                   key={entry.userId}
-                  className={entry.rank <= 3 ? "bg-amber-50/20" : undefined}
+                  className={entry.rank <= 3 ? "bg-amber-300/[0.035]" : undefined}
                 >
                   <TableCell className="pl-5 font-mono text-base font-bold text-slate-500">
                     #{entry.rank}
                   </TableCell>
                   <TableCell>
                     <Link href={`/profile/${entry.userId}`}>
-                      <div className="flex cursor-pointer items-center gap-2.5 hover:text-blue-600">
+                      <div className="flex cursor-pointer items-center gap-2.5 hover:text-primary">
                         <span className="relative inline-flex"><Avatar className="h-8 w-8"><AvatarImage src={entry.avatarUrl ?? undefined} alt="" /><AvatarFallback className="bg-slate-900 text-[10px] font-bold text-white">{entry.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={entry.presenceStatus} size="sm" /></span>
                         <span><span className="block font-semibold">{entry.nickname || `@${entry.username}`}</span>{entry.nickname && <span className="block text-[10px] text-slate-500">@{entry.username}</span>}</span>
                       </div>
@@ -177,13 +177,13 @@ export default function Leaderboard() {
                     {(entry.winRate * 100).toFixed(1)}%
                   </TableCell>
                   <TableCell
-                    className={`text-right font-mono font-semibold ${entry.roi >= 0 ? "text-emerald-600" : "text-red-600"}`}
+                    className={`text-right font-mono font-semibold ${entry.roi >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}
                   >
                     {entry.roi >= 0 ? "+" : ""}
                     {(entry.roi * 100).toFixed(1)}%
                   </TableCell>
                   <TableCell
-                    className={`pr-5 text-right font-mono font-bold ${entry.totalProfit >= 0 ? "text-emerald-600" : "text-red-600"}`}
+                    className={`pr-5 text-right font-mono font-bold ${entry.totalProfit >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}`}
                   >
                     {entry.totalProfit >= 0 ? "+" : ""}
                     {formatCurrency(entry.totalProfit)}

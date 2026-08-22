@@ -3,6 +3,30 @@
 All notable BettorSuite releases are documented here. The project follows
 [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
+## [2.8.0] - 2026-08-21
+
+### Added
+
+- Persistent dark and light theme preferences with accessible desktop and mobile switches.
+- A signed-in color system based on deep navy surfaces, gold primary actions, mint positive states, and restrained blue communication accents.
+
+### Improved
+
+- Direct Messages and group chat now use layered dark canvases, high-contrast incoming and outgoing bubbles, readable timestamps, and theme-matched composers.
+- Daily Cards use quieter structural dividers, consistent dark metadata rows, and compact status treatments without bright white separators.
+- Shared bet slips use subtle outer borders, low-contrast metric dividers, and clearer settled-state colors.
+- Community discovery uses a dark search surface and readable result cards instead of a white gradient panel.
+- Leaderboard podiums and ranking tables now preserve rank hierarchy while keeping usernames, results, ROI, and weekly form legible.
+- Profit Boost controls use a restrained amber tint with a dark percentage field and a clearer enabled switch.
+
+### Accessibility
+
+- Increased text-to-surface contrast across the affected social and betting components and kept status meaning available through labels and icons, not color alone.
+
+### Compatibility
+
+- This is a backward-compatible interface release with no database migration or API contract changes.
+
 ## [2.7.0] - 2026-08-15
 
 ### Added
@@ -244,6 +268,7 @@ The first deployable BettorStats release replaced manual betting records with on
 - Community foundations with groups, group chat, the public War Room, and leaderboard.
 - Admin login and production-ready Vercel routing, API bundling, security headers, and database configuration.
 
+[2.8.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.7.0...v2.8.0
 [2.7.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.6.0...v2.7.0
 [2.6.0]: https://github.com/xhq-CS/BettorSuite/compare/v2.5.3...v2.6.0
 [2.5.3]: https://github.com/xhq-CS/BettorSuite/compare/v2.5.0...v2.5.3

@@ -192,15 +192,15 @@ export default function DirectMessages() {
         </p>
       </header>
 
-      <div className="grid min-h-[650px] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-[330px_minmax(0,1fr)]">
-        <aside className="border-b border-slate-200 lg:border-b-0 lg:border-r">
-          <div className="border-b border-slate-200 p-4">
-            <div className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1">
+      <div className="grid min-h-[650px] overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm shadow-black/10 lg:grid-cols-[330px_minmax(0,1fr)]">
+        <aside className="border-b border-border/70 bg-card lg:border-b-0 lg:border-r">
+          <div className="border-b border-border/70 p-4">
+            <div className="grid grid-cols-2 gap-1 rounded-xl bg-muted/50 p-1">
               <button
                 type="button"
                 onClick={() => setInboxView("direct")}
                 aria-pressed={inboxView === "direct"}
-                className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors ${inboxView === "direct" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors ${inboxView === "direct" ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               >
                 <MessageCircleMore className="h-3.5 w-3.5" /> Direct
               </button>
@@ -208,7 +208,7 @@ export default function DirectMessages() {
                 type="button"
                 onClick={() => setInboxView("groups")}
                 aria-pressed={inboxView === "groups"}
-                className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors ${inboxView === "groups" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}
+                className={`flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors ${inboxView === "groups" ? "bg-card text-primary shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
               >
                 <UsersRound className="h-3.5 w-3.5" /> Groups
               </button>
@@ -223,9 +223,9 @@ export default function DirectMessages() {
                   <Input id="dm-search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search username…" className="pl-9" />
                 </div>
                 {search.trim().length >= 2 && (
-                  <div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-1.5">
+                  <div className="mt-2 max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border/70 bg-background/30 p-1.5">
                     {people.data?.map((person) => (
-                      <div key={person.id} className="flex items-center gap-2 rounded-lg p-2 hover:bg-slate-50">
+                      <div key={person.id} className="flex items-center gap-2 rounded-lg p-2 hover:bg-muted/40">
                         <span className="relative inline-flex"><Avatar className="h-8 w-8"><AvatarImage src={person.avatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[9px]">{person.username.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><PresenceIndicator status={person.presenceStatus} size="sm" /></span>
                         <button type="button" onClick={() => startConversation.mutate(person.id)} className="min-w-0 flex-1 text-left">
                           <div className="truncate text-sm font-semibold">{person.nickname || person.displayName || person.username}</div>
@@ -256,7 +256,7 @@ export default function DirectMessages() {
                     key={conversation.id}
                     type="button"
                     onClick={() => setActiveId(conversation.id)}
-                    className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors ${activeId === conversation.id ? "bg-blue-50 ring-1 ring-blue-100" : "hover:bg-slate-50"}`}
+                    className={`flex w-full items-center gap-3 rounded-xl p-3 text-left transition-colors ${activeId === conversation.id ? "bg-primary/10 ring-1 ring-primary/20" : "hover:bg-muted/35"}`}
                   >
                     <span className="relative inline-flex">
                       <Avatar className="h-11 w-11 border border-slate-200">
@@ -267,7 +267,7 @@ export default function DirectMessages() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="flex items-center justify-between gap-2">
-                        <span className="truncate text-sm font-bold text-slate-900">{conversation.participantNickname || conversation.participantDisplayName || conversation.participantUsername}</span>
+                        <span className="truncate text-sm font-bold text-foreground">{conversation.participantNickname || conversation.participantDisplayName || conversation.participantUsername}</span>
                         {conversation.notificationsMuted ? (
                           <BellOff className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-label="DM notifications muted" />
                         ) : conversation.unreadCount > 0 ? (
@@ -292,7 +292,7 @@ export default function DirectMessages() {
 
         {inboxView === "direct" && activeId ? (
           <section className="flex min-h-[650px] min-w-0 flex-col">
-            <header className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+            <header className="flex items-center justify-between gap-3 border-b border-border/70 bg-card px-4 py-3">
               <Link href={activeConversation ? `/profile/${activeConversation.participantId}` : "/messages"}>
                 <div className="flex cursor-pointer items-center gap-3">
                   <span className="relative inline-flex"><Avatar className="h-9 w-9"><AvatarImage src={activeConversation?.participantAvatarUrl ?? undefined} alt="" /><AvatarFallback className="text-[10px]">{activeConversation?.participantUsername.slice(0, 2).toUpperCase() || "DM"}</AvatarFallback></Avatar><PresenceIndicator status={activeConversation?.participantPresenceStatus} size="md" /></span>
@@ -325,7 +325,7 @@ export default function DirectMessages() {
               </div>
             </header>
 
-            <div className="flex max-h-[510px] min-h-[420px] flex-1 flex-col gap-3 overflow-y-auto bg-slate-50/40 p-4">
+            <div className="flex max-h-[510px] min-h-[420px] flex-1 flex-col gap-3 overflow-y-auto bg-slate-50/40 p-4 dark:bg-[#080f1b]">
               {messages.data?.map((item) => {
                 const mine = item.senderId === user?.id;
                 const editing = editingId === item.id;
@@ -334,7 +334,7 @@ export default function DirectMessages() {
                   <div key={item.id} className={`group flex w-full ${mine ? "justify-end" : "justify-start"}`}>
                     <div className={`flex max-w-[88%] flex-col ${mine ? "items-end" : "items-start"}`}>
                       <div className={`flex items-end gap-1.5 ${mine ? "flex-row-reverse" : ""}`}>
-                        <div className={`min-w-0 ${editing ? "w-[min(520px,75vw)] rounded-2xl border bg-white p-3" : hasAttachment ? "w-[min(600px,80vw)] space-y-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm" : mine ? "rounded-[20px] rounded-br-md bg-[#0A84FF] px-4 py-2.5 text-white" : "rounded-[20px] rounded-bl-md bg-[#E9E9EB] px-4 py-2.5 text-slate-950"}`}>
+                        <div className={`min-w-0 ${editing ? "w-[min(520px,75vw)] rounded-2xl border border-border bg-card p-3" : hasAttachment ? "w-[min(600px,80vw)] space-y-2 rounded-2xl border border-border/70 bg-card p-2 shadow-sm shadow-black/20" : mine ? "rounded-[20px] rounded-br-md bg-blue-600 px-4 py-2.5 text-white" : "rounded-[20px] rounded-bl-md bg-[#E9E9EB] px-4 py-2.5 text-slate-950 dark:border dark:border-white/[0.04] dark:bg-[#1d2738] dark:text-slate-100"}`}>
                           {editing ? (
                             <div className="space-y-2">
                               <Textarea value={editText} onChange={(event) => setEditText(event.target.value)} rows={3} maxLength={2000} autoFocus />
@@ -342,7 +342,7 @@ export default function DirectMessages() {
                             </div>
                           ) : (
                             <>
-                              {item.content && <p className={`whitespace-pre-wrap break-words text-[15px] leading-5 ${hasAttachment ? "px-2 pt-1 text-slate-700" : ""}`}>{item.content}</p>}
+                              {item.content && <p className={`whitespace-pre-wrap break-words text-[15px] leading-5 ${hasAttachment ? "px-2 pt-1 text-slate-200" : ""}`}>{item.content}</p>}
                               {item.betShare && <SharedBetCard bet={item.betShare} compact onTail={setTailBet} />}
                               {item.dailyCard && <DailyCardCard card={item.dailyCard} compact onTail={setTailBet} />}
                             </>
@@ -350,7 +350,7 @@ export default function DirectMessages() {
                         </div>
                         {mine && !editing && (
                           deletingId === item.id ? (
-                            <div className="flex items-center gap-1 rounded-full border bg-white p-1 shadow-sm"><Button size="sm" variant="ghost" className="h-7 rounded-full px-2" onClick={() => setDeletingId(null)}>Cancel</Button><Button size="sm" variant="destructive" className="h-7 rounded-full px-2" onClick={() => deleteMessage.mutate(item.id)}>Delete</Button></div>
+                            <div className="flex items-center gap-1 rounded-full border border-border bg-card p-1 shadow-sm"><Button size="sm" variant="ghost" className="h-7 rounded-full px-2" onClick={() => setDeletingId(null)}>Cancel</Button><Button size="sm" variant="destructive" className="h-7 rounded-full px-2" onClick={() => deleteMessage.mutate(item.id)}>Delete</Button></div>
                           ) : (
                             <div className="flex gap-0.5 opacity-60 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                               <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Edit message" onClick={() => { setEditingId(item.id); setEditText(item.content); }}><Pencil className="h-3.5 w-3.5" /></Button>
@@ -359,7 +359,7 @@ export default function DirectMessages() {
                           )
                         )}
                       </div>
-                      <div className="mt-1 px-2 text-[10px] text-slate-400">{new Date(item.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{item.editedAt && <span className="ml-1 italic">(edited)</span>}{mine && item.id === latestOwnMessageId && item.deliveryStatus && <span className={`ml-1.5 font-semibold ${item.deliveryStatus === "read" ? "text-blue-500" : "text-slate-400"}`}>· {item.deliveryStatus === "read" ? "Read" : "Delivered"}</span>}</div>
+                      <div className="mt-1 px-2 text-[10px] text-slate-500">{new Date(item.createdAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{item.editedAt && <span className="ml-1 italic">(edited)</span>}{mine && item.id === latestOwnMessageId && item.deliveryStatus && <span className={`ml-1.5 font-semibold ${item.deliveryStatus === "read" ? "text-blue-300" : "text-slate-500"}`}>· {item.deliveryStatus === "read" ? "Read" : "Delivered"}</span>}</div>
                     </div>
                   </div>
                 );
@@ -367,16 +367,16 @@ export default function DirectMessages() {
               {!messages.isLoading && !messages.data?.length && <div className="m-auto text-center text-sm text-slate-500">Send a message, a pick to tail, or your daily card.</div>}
             </div>
 
-            <form onSubmit={(event) => { event.preventDefault(); submit(); }} className="border-t border-slate-200 p-4">
+            <form onSubmit={(event) => { event.preventDefault(); submit(); }} className="border-t border-border/70 bg-card p-4">
               <div className="flex items-end gap-2">
-                <Textarea value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} rows={2} maxLength={2000} placeholder="Message privately…" className="max-h-32 min-h-[46px] resize-y rounded-2xl" />
+                <Textarea value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); submit(); } }} rows={2} maxLength={2000} placeholder="Message privately…" className="max-h-32 min-h-[46px] resize-y rounded-2xl border-border bg-background/60 text-foreground placeholder:text-muted-foreground" />
                 <Button type="submit" size="icon" className="h-10 w-10 shrink-0 rounded-full" disabled={!message.trim() || sendMessage.isPending} aria-label="Send direct message"><Send className="h-4 w-4" /></Button>
               </div>
               <MessageShortcutHint />
             </form>
           </section>
         ) : inboxView === "groups" ? (
-          <section className="flex min-h-[650px] items-center justify-center bg-slate-50/40 p-8 text-center">
+          <section className="flex min-h-[650px] items-center justify-center bg-slate-50/40 p-8 text-center dark:bg-[#080f1b]">
             <div>
               <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
                 <UsersRound className="h-7 w-7" />
@@ -386,7 +386,7 @@ export default function DirectMessages() {
                 Open any joined group from the list. You can enter the same chat from Messages or Community.
               </p>
               <Link href="/community">
-                <span className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-sm transition-colors hover:bg-slate-50">
+                <span className="mt-5 inline-flex h-10 items-center justify-center rounded-md border border-border bg-card px-4 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted/40">
                   Find More Groups
                 </span>
               </Link>

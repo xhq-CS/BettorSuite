@@ -43,25 +43,25 @@ const STATUS_DETAILS = {
     label: "Pending Slip",
     action: "Tail this bet",
     icon: Clock3,
-    color: "border-blue-200 bg-blue-50 text-blue-700",
+    color: "border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300",
   },
   won: {
     label: "Winning Ticket",
     action: "Cashed",
     icon: CheckCircle2,
-    color: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    color: "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   },
   lost: {
     label: "Final",
     action: "Lost",
     icon: XCircle,
-    color: "border-red-200 bg-red-50 text-red-700",
+    color: "border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-300",
   },
   push: {
     label: "Final",
     action: "Push",
     icon: RotateCcw,
-    color: "border-amber-200 bg-amber-50 text-amber-700",
+    color: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   },
 } as const;
 
@@ -97,16 +97,16 @@ export function SharedBetCard({
 
   return (
     <article
-      className={`w-full overflow-hidden border bg-white text-slate-950 ${compact ? "max-w-xl rounded-2xl border-blue-100 shadow-[0_8px_24px_rgba(15,23,42,0.10)]" : "rounded-2xl border-slate-200 shadow-sm"}`}
+      className={`w-full overflow-hidden border border-border/80 bg-card text-card-foreground ring-1 ring-white/[0.025] ${compact ? "max-w-xl rounded-2xl shadow-[0_10px_28px_rgba(0,0,0,0.20)]" : "rounded-2xl shadow-sm shadow-black/10"}`}
     >
       <div
-        className={`flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-950 text-white ${compact ? "px-3.5 py-2.5" : "px-4 py-2.5"}`}
+        className={`flex items-center justify-between gap-3 border-b border-border/60 bg-[#080f1f] text-white ${compact ? "px-3.5 py-2.5" : "px-4 py-2.5"}`}
       >
         <div className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em]">
           <ReceiptText className="h-4 w-4 text-blue-300" />
           Shared Bet Slip
         </div>
-        <span className="rounded-full border border-white/15 bg-white/10 px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-slate-200">
+        <span className="rounded-full border border-border bg-white/[0.06] px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-slate-300">
           {bet.source === "tracker" ? "Book Keeper" : "Mock Betting"}
         </span>
       </div>
@@ -150,9 +150,9 @@ export function SharedBetCard({
         </div>
 
         {isParlay && bet.parlayLegs.length > 0 && (
-          <details className="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+          <details className="group overflow-hidden rounded-xl border border-border/70 bg-muted/25">
             <summary
-              className={`flex cursor-pointer list-none items-center justify-between gap-3 px-3 text-xs font-semibold text-slate-700 ${compact ? "py-2" : "py-2.5"}`}
+              className={`flex cursor-pointer list-none items-center justify-between gap-3 px-3 text-xs font-semibold text-foreground ${compact ? "py-2" : "py-2.5"}`}
             >
               <span className="flex items-center gap-2">
                 <Layers3 className="h-4 w-4 text-blue-600" />
@@ -160,17 +160,17 @@ export function SharedBetCard({
               </span>
               <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
             </summary>
-            <div className="space-y-2 border-t border-slate-200 bg-white p-3">
+            <div className="space-y-2 border-t border-border/60 bg-background/40 p-3">
               {bet.parlayLegs.map((leg, index) => (
                 <div
                   key={`${index}-${leg.description}`}
                   className="flex gap-2.5"
                 >
-                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-blue-200 bg-blue-50 text-[9px] font-bold text-blue-700">
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-blue-500/20 bg-blue-500/10 text-[9px] font-bold text-blue-700 dark:text-blue-300">
                     {index + 1}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="break-words text-xs font-semibold text-slate-900">
+                    <div className="break-words text-xs font-semibold text-foreground">
                       {leg.description}
                     </div>
                     <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-slate-500">
@@ -179,7 +179,7 @@ export function SharedBetCard({
                       <span>{formatBetType(leg.betType)}</span>
                     </div>
                   </div>
-                  <span className="shrink-0 font-mono text-xs font-semibold text-slate-700">
+                  <span className="shrink-0 font-mono text-xs font-semibold text-foreground">
                     {formatOdds(leg.odds)}
                   </span>
                 </div>
@@ -188,7 +188,7 @@ export function SharedBetCard({
           </details>
         )}
 
-        <div className="grid grid-cols-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+        <div className="grid grid-cols-4 overflow-hidden rounded-xl border border-border/70 bg-muted/25">
           <Metric label="Wager" value={formatCurrency(bet.wager)} compact={compact} />
           <Metric label="Odds" value={formatOdds(bet.odds)} compact={compact} />
           <Metric
@@ -204,7 +204,7 @@ export function SharedBetCard({
           <button
             type="button"
             onClick={() => onTail(bet)}
-            className="group/tail flex w-full items-center justify-center gap-2 rounded-xl border border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-blue-700 transition-all hover:border-blue-300 hover:from-blue-100 hover:to-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+            className="group/tail flex w-full items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-primary transition-all hover:border-primary/45 hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <CircleDot className="h-4 w-4" />
             Tail This Bet
@@ -240,13 +240,13 @@ function Metric({
 }) {
   return (
     <div
-      className={`min-w-0 border-r border-slate-200 px-2 text-center last:border-r-0 ${compact ? "py-2.5" : "py-2.5"}`}
+      className={`min-w-0 border-r border-border/60 px-2 text-center last:border-r-0 ${compact ? "py-2.5" : "py-2.5"}`}
     >
       <div className="truncate text-[8px] font-semibold uppercase tracking-wider text-slate-500">
         {label}
       </div>
       <div
-        className={`mt-1 truncate font-mono text-[11px] font-bold ${tone === "positive" ? "text-emerald-600" : tone === "negative" ? "text-red-600" : "text-slate-900"}`}
+        className={`mt-1 truncate font-mono text-[11px] font-bold ${tone === "positive" ? "text-emerald-700 dark:text-emerald-300" : tone === "negative" ? "text-red-700 dark:text-red-300" : "text-foreground"}`}
       >
         {value}
       </div>

@@ -75,7 +75,7 @@ export function CommunitySearch({
   const searching = users.isLoading || groups.isLoading;
 
   return (
-    <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-white via-white to-blue-50/60">
+    <Card className="overflow-hidden border-border/80 bg-gradient-to-br from-card via-card to-primary/[0.035] shadow-sm shadow-black/10">
       <CardContent className="p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="min-w-0 sm:w-64">
@@ -92,7 +92,7 @@ export function CommunitySearch({
               onChange={(event) => onQueryChange(event.target.value)}
               placeholder="Search bettors and groups..."
               aria-label="Search bettors and groups"
-              className="h-11 bg-white pl-9"
+              className="h-11 border-border bg-background/70 pl-9 text-foreground placeholder:text-muted-foreground focus-visible:border-primary/50"
             />
           </div>
         </div>
@@ -115,7 +115,7 @@ export function CommunitySearch({
                 {users.data?.slice(0, 5).map((person) => (
                   <div
                     key={person.id}
-                    className="flex items-center gap-3 rounded-xl border bg-white p-2.5 shadow-sm"
+                    className="flex items-center gap-3 rounded-xl border border-border/70 bg-muted/20 p-2.5"
                   >
                     <button
                       type="button"
@@ -182,7 +182,7 @@ export function CommunitySearch({
                     key={group.id}
                     type="button"
                     onClick={() => navigate(`/groups/${group.id}?from=community`)}
-                    className="flex w-full items-center gap-3 rounded-xl border bg-white p-2.5 text-left shadow-sm transition-colors hover:border-primary/40 hover:bg-blue-50/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="flex w-full items-center gap-3 rounded-xl border border-border/70 bg-muted/20 p-2.5 text-left transition-colors hover:border-primary/35 hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                       <Users className="h-4 w-4" />

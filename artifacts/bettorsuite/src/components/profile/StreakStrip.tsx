@@ -40,7 +40,7 @@ export function StreakStrip({ days }: StreakStripProps) {
               {weekday}
             </span>
             <span
-              className={`flex h-6 w-6 items-center justify-center rounded-full border ${isProfit ? "border-emerald-200 bg-emerald-50 text-emerald-600" : isLoss ? "border-red-200 bg-red-50 text-red-500" : "border-slate-200 bg-slate-100 text-slate-400"}`}
+              className={`flex h-6 w-6 items-center justify-center rounded-full border ${isProfit ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : isLoss ? "border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-300" : "border-border bg-muted/40 text-muted-foreground"}`}
             >
               {isProfit ? (
                 <Check className="h-3.5 w-3.5" strokeWidth={3} />

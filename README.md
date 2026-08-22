@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/xhq-CS/BettorSuite/releases/latest"><img alt="Latest release" src="https://img.shields.io/badge/release-v2.7.0-3866e8?style=flat-square" /></a>
+  <a href="https://github.com/xhq-CS/BettorSuite/releases/latest"><img alt="Latest release" src="https://img.shields.io/badge/release-v2.8.0-f4c84a?style=flat-square" /></a>
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178c6?style=flat-square&logo=typescript&logoColor=white" />
   <img alt="React" src="https://img.shields.io/badge/React-19-149eca?style=flat-square&logo=react&logoColor=white" />
   <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-backed-4169e1?style=flat-square&logo=postgresql&logoColor=white" />
@@ -51,18 +51,18 @@ BettorSuite gives bettors one clean home for the full loop: record real sportsbo
 
 ## Current release
 
-### v2.7.0 — Public Launch & Trust Layer
+### v2.8.0 — Dark Interface & Readability
 
-BettorSuite has a real front door now—and a proper lock.
+BettorSuite now carries the landing-page atmosphere through the signed-in product without sacrificing clarity.
 
-- Added an interactive signed-out landing experience with direct login and sign-up paths.
-- Added one-time password recovery, password changes, active-session management, and remote sign-out.
-- Added user blocking, reporting, privacy requests, and a dedicated administrator safety inbox.
-- Added public Privacy, Terms, Community Guidelines, and Responsible Gambling pages.
-- Added launch-ready social metadata, share artwork, and search-engine indexing rules.
-- Tightened blocked-user visibility and interaction rules across the War Room, groups, DMs, profiles, search, and shared content.
+- Added a persistent dark mode with a light-mode switch on desktop and mobile.
+- Reworked the signed-in palette around deep navy surfaces, gold actions, mint profit states, and readable supporting text.
+- Cleaned up Direct Messages and group chat with layered message surfaces and higher-contrast bubbles.
+- Refined Daily Cards, shared slips, community search, leaderboards, and profit boosts for dark-theme consistency.
+- Replaced bright white dividers and borders with quieter structural separators.
+- Kept the public landing page's intentional light and dark sections unchanged.
 
-Read the full [changelog](./CHANGELOG.md) or the [v2.7.0 release notes](./docs/releases/v2.7.0.md).
+Read the full [changelog](./CHANGELOG.md) or the [v2.8.0 release notes](./docs/releases/v2.8.0.md).
 
 ## How the product fits together
 
@@ -156,6 +156,7 @@ Releases follow [Semantic Versioning](https://semver.org/). The newest release a
 
 | Version | Release | Focus |
 | --- | --- | --- |
+| `v2.8.0` | Dark Interface & Readability | Persistent theming, chat clarity, cleaner cards, slips, search, rankings, and boosts |
 | `v2.7.0` | Public Launch & Trust Layer | Landing, recovery, session security, blocking, reports, and legal surfaces |
 | `v2.6.0` | Live Social Presence | Presence, read receipts, and reliable private nicknames |
 | `v2.5.3` | Clearer Bet Entry | League selection, winner polish, and louder message alerts |
